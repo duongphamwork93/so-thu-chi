@@ -41,8 +41,9 @@ export default async function handler(req: any, res: any) {
     });
 
     let spokenText = typeof transcript === 'string' ? transcript.trim() : '';
+    let audioPart: { inlineData: { mimeType: string; data: string } } | null = null;
 
-    // 1. Transcribe audio if audioBase64 is provided using gemini-3.5-transcribe
+    // 1. Prepare audio payload & transcribe using gemini-3.5-transcribe
     if (audioBase64 && typeof audioBase64 === 'string') {
       const trimmedInput = audioBase64.trim();
       const b64MarkerIdx = trimmedInput.indexOf(';base64,');
@@ -59,25 +60,27 @@ export default async function handler(req: any, res: any) {
         const endIdx = semiIdx !== -1 && (commaIdx === -1 || semiIdx < commaIdx) ? semiIdx : commaIdx;
         if (endIdx > 5) detectedMime = trimmedInput.slice(5, endIdx);
       }
-      const rawMime = (detectedMime || 'audio/webm').split(';')[0].trim().toLowerCase();
+      const rawMime = (detectedMime || 'audio/wav').split(';')[0].trim().toLowerCase();
       const cleanMimeType =
-        rawMime === 'audio/x-m4a' || rawMime === 'video/mp4' ? 'audio/mp4' : rawMime || 'audio/webm';
+        rawMime === 'audio/x-m4a' || rawMime === 'video/mp4' ? 'audio/mp4' : rawMime || 'audio/wav';
 
       if (cleanBase64.length > 20) {
+        audioPart = {
+          inlineData: {
+            mimeType: cleanMimeType,
+            data: cleanBase64,
+          },
+        };
+
         const transcribeTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Hết thời gian chuyển giọng nói thành văn bản')), 35000)
+          setTimeout(() => reject(new Error('Hết thời gian chuyển giọng nói thành văn bản')), 30000)
         );
 
         const transcribePromise = ai.models.generateContent({
           model: 'gemini-3.5-transcribe',
           contents: {
             parts: [
-              {
-                inlineData: {
-                  mimeType: cleanMimeType,
-                  data: cleanBase64,
-                },
-              },
+              audioPart,
               {
                 text: 'Chép lại chính xác nguyên văn tiếng Việt trong đoạn ghi âm giao dịch tài chính cá nhân này. Giữ nguyên mọi con số, đơn vị tiền (nghìn, trăm, triệu, k), tên ngân hàng/ví, tên người và địa điểm. Chỉ trả về đúng câu nói, không thêm lời bình.',
               },
@@ -87,26 +90,22 @@ export default async function handler(req: any, res: any) {
 
         try {
           const transcribeRes: any = await Promise.race([transcribePromise, transcribeTimeout]);
-          const transcribed = (transcribeRes?.text || '').trim();
+          const partText = Array.isArray(transcribeRes?.candidates?.[0]?.content?.parts)
+            ? transcribeRes.candidates[0].content.parts
+                .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+                .join(' ')
+            : '';
+          const transcribed = (transcribeRes?.text || partText || '').trim();
           if (transcribed) {
             spokenText = transcribed;
           }
         } catch (transErr) {
-          console.warn('gemini-3.5-transcribe fallback to transcript:', transErr);
-          if (!spokenText) {
-            throw transErr;
-          }
+          console.warn('gemini-3.5-transcribe failed, will try direct audio fallback:', transErr);
         }
       }
     }
 
-    if (!spokenText) {
-      return res.status(400).json({
-        error: 'Không nghe rõ nội dung giọng nói. Bạn vui lòng nói rõ hơn hoặc thử lại.',
-      });
-    }
-
-    // 2. Structured transaction parsing via Gemini
+    // Prepare common context for transaction parsing
     const todayStr = currentDate || new Date().toISOString().slice(0, 10);
     const accountNames = [
       ...(Array.isArray(accounts) ? accounts.map((a: any) => a?.name).filter(Boolean) : []),
@@ -122,10 +121,7 @@ export default async function handler(req: any, res: any) {
         ? `Các chuyến đi/sự kiện hiện có: ${savedTrips.join(', ')}.`
         : '';
 
-    const parsePrompt = `Hôm nay là ngày: ${todayStr}.
-Câu nói tiếng Việt người dùng vừa ghi âm để ghi sổ thu chi:
-"${spokenText}"
-
+    const rulesText = `Hôm nay là ngày: ${todayStr}.
 Danh sách tài khoản/thẻ hiện có của người dùng: ${accountNames.length > 0 ? accountNames.join(', ') : 'Chưa rõ'}.
 Danh sách mã danh mục (category key) hợp lệ: ${catListText}.
 ${tripContext}
@@ -140,7 +136,69 @@ Quy tắc bóc tách chuẩn:
 7. counterparty: Tên người hoặc đối tác thu/chi cùng nếu có nhắc (VD: "Anh Nam", "Chị Lan").
 8. location: Tên địa điểm, quán, siêu thị nếu có nhắc (VD: "Siêu thị WinMart", "Quán Phở 24").
 9. tripName: Tên chuyến đi hoặc sự kiện nếu có nhắc (VD: "Du lịch Đà Lạt", "Tết 2026").
-10. beneficiary: Chỉ điền nếu rõ ràng dành cho ai: 'me', 'spouse', 'child1', 'child2', 'both_children', hoặc 'family'.
+10. beneficiary: Chỉ điền nếu rõ ràng dành cho ai: 'me', 'spouse', 'child1', 'child2', 'both_children', hoặc 'family'.`;
+
+    // 2A. Fallback: if gemini-3.5-transcribe yielded empty text but we have valid audio, listen & parse directly with gemini-4-hydrogen
+    if (!spokenText && audioPart) {
+      const directTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Yêu cầu phân tích giọng nói quá thời gian xử lý')), 40000)
+      );
+      const directPromise = ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: {
+          parts: [
+            audioPart,
+            {
+              text: `Hãy nghe đoạn ghi âm tiếng Việt đính kèm. Chép lại chính xác nội dung câu nói vào trường "transcript", đồng thời bóc tách thông tin giao dịch tài chính cá nhân theo quy tắc sau:\n${rulesText}\nNếu đoạn âm thanh hoàn toàn im lặng hoặc không có lời nói tiếng Việt rõ ràng, trả về transcript: "" và amount: 0.`,
+            },
+          ],
+        },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              transcript: { type: Type.STRING, description: 'Nguyên văn câu nói tiếng Việt nghe được trong audio' },
+              amount: { type: Type.NUMBER, description: 'Số tiền VNĐ dương' },
+              type: { type: Type.STRING, description: "'out' hoặc 'in'" },
+              category: { type: Type.STRING, description: 'Mã category key hợp lệ' },
+              note: { type: Type.STRING, description: 'Ghi chú giao dịch ngắn gọn' },
+              date: { type: Type.STRING, description: 'Ngày YYYY-MM-DD' },
+              account: { type: Type.STRING, description: 'Tên tài khoản/ví/thẻ thanh toán nếu có' },
+              beneficiary: { type: Type.STRING, description: 'Người thụ hưởng nếu rõ' },
+              location: { type: Type.STRING, description: 'Địa điểm chi tiêu nếu có' },
+              counterparty: { type: Type.STRING, description: 'Với ai / đối tượng thu chi nếu có' },
+              tripName: { type: Type.STRING, description: 'Tên chuyến đi / sự kiện nếu có' },
+            },
+            required: ['transcript', 'amount', 'type', 'category', 'note', 'date'],
+          },
+        },
+      });
+
+      const directRes: any = await Promise.race([directPromise, directTimeout]);
+      const directParsed = JSON.parse(directRes?.text || '{}');
+      if (directParsed?.transcript && String(directParsed.transcript).trim()) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            ...directParsed,
+            transcript: String(directParsed.transcript).trim(),
+          },
+        });
+      }
+    }
+
+    if (!spokenText) {
+      return res.status(400).json({
+        error: 'Không nghe rõ nội dung giọng nói. Bạn vui lòng nói gần micro rõ hơn hoặc thử lại.',
+      });
+    }
+
+    // 2B. Structured transaction parsing from transcribed text
+    const parsePrompt = `Câu nói tiếng Việt người dùng vừa ghi âm để ghi sổ thu chi:
+"${spokenText}"
+
+${rulesText}
 
 Hãy phân tích và trả về JSON chính xác.`;
 

@@ -21,6 +21,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatVND, getTodayDateString, parseVietnameseMoneyText } from '../../utils/formatters';
 import { resolveDefaultPaymentAccountId } from '../../utils/paymentMatcher';
+import { encodeFloat32ChunksToWav } from '../../utils/audioWavRecorder';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, guessCategoryByText } from '../../constants/categories';
 import { BeneficiaryKey, TransactionType } from '../../types/finance';
 
@@ -70,6 +71,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
   const [liveTranscript, setLiveTranscript] = useState('');
   const [manualText, setManualText] = useState('');
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [micLevel, setMicLevel] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [parsedResult, setParsedResult] = useState<ParsedVoiceTransaction | null>(null);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -77,12 +79,19 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const muteGainRef = useRef<GainNode | null>(null);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const sampleRateRef = useRef<number>(44100);
+  const usingWebAudioRef = useRef<boolean>(false);
   const speechRecRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
   const stopWatchdogRef = useRef<number | null>(null);
   const hasFinalizedRef = useRef<boolean>(false);
   const isStoppingRef = useRef<boolean>(false);
-  const activeMimeRef = useRef<string>('audio/webm');
+  const activeMimeRef = useRef<string>('audio/wav');
   const liveTranscriptRef = useRef<string>('');
 
   const cleanupRecording = () => {
@@ -103,6 +112,41 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
         // ignore
       }
       speechRecRef.current = null;
+    }
+    if (scriptProcessorRef.current) {
+      try {
+        scriptProcessorRef.current.onaudioprocess = null;
+        scriptProcessorRef.current.disconnect();
+      } catch {
+        // ignore
+      }
+      scriptProcessorRef.current = null;
+    }
+    if (mediaSourceRef.current) {
+      try {
+        mediaSourceRef.current.disconnect();
+      } catch {
+        // ignore
+      }
+      mediaSourceRef.current = null;
+    }
+    if (muteGainRef.current) {
+      try {
+        muteGainRef.current.disconnect();
+      } catch {
+        // ignore
+      }
+      muteGainRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        if (audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+      audioContextRef.current = null;
     }
     if (mediaRecorderRef.current) {
       try {
@@ -127,6 +171,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
       });
       mediaStreamRef.current = null;
     }
+    setMicLevel(0);
   };
 
   useEffect(() => {
@@ -136,11 +181,13 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
       liveTranscriptRef.current = '';
       setManualText('');
       setElapsedSec(0);
+      setMicLevel(0);
       setErrorMsg(null);
       setParsedResult(null);
       setSavedNotice(false);
       hasFinalizedRef.current = false;
       isStoppingRef.current = false;
+      usingWebAudioRef.current = false;
     } else {
       cleanupRecording();
     }
@@ -317,26 +364,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     }
   };
 
-  const finalizeRecordedAudio = (mimeHint?: string) => {
-    if (hasFinalizedRef.current) return;
-    hasFinalizedRef.current = true;
-    isStoppingRef.current = false;
-
-    const chunks = [...audioChunksRef.current];
-    const cleanMime = (mimeHint || activeMimeRef.current || 'audio/webm').split(';')[0].trim() || 'audio/webm';
-    cleanupRecording();
-
-    if (chunks.length === 0) {
-      if (liveTranscriptRef.current.trim()) {
-        callVoiceParseApi({ transcript: liveTranscriptRef.current.trim() });
-      } else {
-        setStage('idle');
-        setErrorMsg('Chưa thu được âm thanh. Bạn vui lòng nói gần micro và thử lại.');
-      }
-      return;
-    }
-
-    const blob = new Blob(chunks, { type: cleanMime });
+  const sendAudioBlob = (blob: Blob, mimeType: string) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : '';
@@ -347,7 +375,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
 
       callVoiceParseApi({
         audioBase64: pureBase64,
-        mimeType: cleanMime,
+        mimeType,
         transcript: liveTranscriptRef.current.trim() || undefined,
       });
     };
@@ -362,14 +390,60 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     reader.readAsDataURL(blob);
   };
 
+  const finalizeRecordedAudio = (mimeHint?: string) => {
+    if (hasFinalizedRef.current) return;
+    hasFinalizedRef.current = true;
+    isStoppingRef.current = false;
+
+    const pcmChunks = [...pcmChunksRef.current];
+    const sampleRate = sampleRateRef.current;
+    const chunks = [...audioChunksRef.current];
+    const wasWebAudio = usingWebAudioRef.current;
+    const cleanMime = (mimeHint || activeMimeRef.current || 'audio/webm').split(';')[0].trim() || 'audio/webm';
+
+    cleanupRecording();
+
+    if (wasWebAudio && pcmChunks.length > 0) {
+      const { blob, durationSec, peakAmplitude } = encodeFloat32ChunksToWav(pcmChunks, sampleRate, 16000);
+      if (durationSec < 0.25 && !liveTranscriptRef.current.trim()) {
+        setStage('idle');
+        setErrorMsg('Đoạn ghi âm hơi ngắn. Vui lòng nói trọn câu rồi mới bấm dừng nhé.');
+        return;
+      }
+      if (peakAmplitude < 0.0015 && !liveTranscriptRef.current.trim()) {
+        setStage('idle');
+        setErrorMsg('Micro không nhận được âm thanh nào. Bạn hãy kiểm tra quyền micro hoặc nói gần điện thoại hơn nhé.');
+        return;
+      }
+      sendAudioBlob(blob, 'audio/wav');
+      return;
+    }
+
+    if (chunks.length === 0) {
+      if (liveTranscriptRef.current.trim()) {
+        callVoiceParseApi({ transcript: liveTranscriptRef.current.trim() });
+      } else {
+        setStage('idle');
+        setErrorMsg('Chưa thu được âm thanh. Bạn vui lòng nói gần micro và thử lại.');
+      }
+      return;
+    }
+
+    const blob = new Blob(chunks, { type: cleanMime });
+    sendAudioBlob(blob, cleanMime);
+  };
+
   const startRecording = async () => {
     setErrorMsg(null);
     setLiveTranscript('');
     liveTranscriptRef.current = '';
     setElapsedSec(0);
+    setMicLevel(0);
     audioChunksRef.current = [];
+    pcmChunksRef.current = [];
     hasFinalizedRef.current = false;
     isStoppingRef.current = false;
+    usingWebAudioRef.current = false;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setErrorMsg('Trình duyệt không hỗ trợ ghi âm trực tiếp. Hãy chọn câu mẫu hoặc gõ câu nói bên dưới.');
@@ -377,40 +451,95 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       mediaStreamRef.current = stream;
 
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-      const mimeCandidates = isIOS
-        ? ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
-        : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+      // Prefer Web Audio API PCM WAV recording: produces clean 16kHz WAV universally (avoids iOS fragmented MP4 bugs)
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      let startedWebAudio = false;
+      if (AudioCtx) {
+        try {
+          const audioCtx = new AudioCtx();
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+          sampleRateRef.current = audioCtx.sampleRate || 44100;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+          const muteGain = audioCtx.createGain();
+          muteGain.gain.value = 0;
 
-      const supportedMime =
-        typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function'
-          ? mimeCandidates.find(m => MediaRecorder.isTypeSupported(m))
-          : undefined;
+          processor.onaudioprocess = ev => {
+            const input = ev.inputBuffer.getChannelData(0);
+            pcmChunksRef.current.push(new Float32Array(input));
+            let sumSq = 0;
+            for (let i = 0; i < input.length; i += 4) {
+              sumSq += input[i] * input[i];
+            }
+            const rms = Math.sqrt(sumSq / Math.max(1, input.length / 4));
+            const pct = Math.min(100, Math.round(rms * 420));
+            setMicLevel(pct);
+          };
 
-      const recorder = supportedMime
-        ? new MediaRecorder(stream, { mimeType: supportedMime })
-        : new MediaRecorder(stream);
+          source.connect(processor);
+          processor.connect(muteGain);
+          muteGain.connect(audioCtx.destination);
 
-      activeMimeRef.current = (recorder.mimeType || supportedMime || (isIOS ? 'audio/mp4' : 'audio/webm')).split(';')[0].trim();
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = e => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+          audioContextRef.current = audioCtx;
+          mediaSourceRef.current = source;
+          scriptProcessorRef.current = processor;
+          muteGainRef.current = muteGain;
+          activeMimeRef.current = 'audio/wav';
+          usingWebAudioRef.current = true;
+          startedWebAudio = true;
+        } catch (webAudioErr) {
+          console.warn('Web Audio PCM init failed, falling back to MediaRecorder:', webAudioErr);
+          usingWebAudioRef.current = false;
         }
-      };
+      }
 
-      recorder.onstop = () => {
-        finalizeRecordedAudio(recorder.mimeType || supportedMime);
-      };
+      if (!startedWebAudio) {
+        const mimeCandidates = isIOS
+          ? ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+          : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
 
-      // Skip concurrent Web Speech API on iOS because iOS WebKit locks/conflicts audio sessions with MediaRecorder
+        const supportedMime =
+          typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function'
+            ? mimeCandidates.find(m => MediaRecorder.isTypeSupported(m))
+            : undefined;
+
+        const recorder = supportedMime
+          ? new MediaRecorder(stream, { mimeType: supportedMime })
+          : new MediaRecorder(stream);
+
+        activeMimeRef.current = (recorder.mimeType || supportedMime || (isIOS ? 'audio/mp4' : 'audio/webm')).split(';')[0].trim();
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          finalizeRecordedAudio(recorder.mimeType || supportedMime);
+        };
+
+        // Start WITHOUT timeslice so browsers emit one complete self-contained audio file on stop
+        recorder.start();
+      }
+
+      // Skip concurrent Web Speech API on iOS because iOS WebKit locks/conflicts audio sessions
       if (!isIOS) {
         const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRec) {
@@ -429,7 +558,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
               setLiveTranscript(clean);
             };
             rec.onerror = () => {
-              // Ignore silently; MediaRecorder + Gemini audio handles transcription
+              // Ignore silently; PCM WAV + Gemini audio handles transcription
             };
             rec.start();
             speechRecRef.current = rec;
@@ -439,7 +568,6 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
         }
       }
 
-      recorder.start(250);
       setStage('listening');
 
       timerRef.current = window.setInterval(() => {
@@ -476,21 +604,18 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     // Immediate UI transition so user sees instant stop feedback
     setStage('processing');
 
+    if (usingWebAudioRef.current) {
+      finalizeRecordedAudio('audio/wav');
+      return;
+    }
+
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
       const mime = recorder.mimeType || activeMimeRef.current;
-      // Safety watchdog in case iOS Safari delays or drops MediaRecorder.onstop
       stopWatchdogRef.current = window.setTimeout(() => {
         finalizeRecordedAudio(mime);
       }, 900);
 
-      try {
-        if (typeof recorder.requestData === 'function') {
-          recorder.requestData();
-        }
-      } catch {
-        // ignore
-      }
       try {
         recorder.stop();
       } catch {
@@ -506,6 +631,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     isStoppingRef.current = false;
     cleanupRecording();
     audioChunksRef.current = [];
+    pcmChunksRef.current = [];
     liveTranscriptRef.current = '';
     setLiveTranscript('');
     setElapsedSec(0);
@@ -696,6 +822,20 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
                       ? 'Đang nghe bạn nói... Chạm nút đỏ để hoàn tất'
                       : 'Chạm vào micro để bắt đầu nói'}
                   </p>
+                  {stage === 'listening' && (
+                    <div className="flex items-center justify-center gap-1 h-5 pt-0.5" aria-hidden="true">
+                      {[0.4, 0.75, 1, 0.75, 0.4].map((weight, idx) => {
+                        const h = Math.max(4, Math.round(4 + (micLevel / 100) * 16 * weight));
+                        return (
+                          <span
+                            key={idx}
+                            className="w-1.5 rounded-full bg-rose-500 transition-all duration-75"
+                            style={{ height: `${h}px` }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                   {stage === 'listening' && liveTranscript && (
                     <div className="mt-2 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 max-w-sm mx-auto">
                       "{liveTranscript}"
