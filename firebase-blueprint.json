@@ -1,0 +1,747 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile for multi-device ledger synchronization",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Verified user email"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Profile avatar URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "LedgerSettings": {
+      "title": "LedgerSettings",
+      "description": "User ledger preferences, monthly budget, and family member nicknames",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ledgerName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "budget": {
+          "type": "number"
+        },
+        "goal": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "risk": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "privacyMask": {
+          "type": "boolean"
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark", "system"]
+        },
+        "colorTheme": {
+          "type": "string",
+          "enum": ["emerald", "amber", "pink", "blue", "violet"],
+          "description": "UI accent palette theme"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "meName": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "spouseName": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "child1Name": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "child2Name": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "defaultPaymentAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Primary default account or credit card ID for expenses"
+        },
+        "autoPaymentRules": {
+          "type": "array",
+          "description": "Keyword-based rules mapping merchant keywords (Grab, Shopee, supermarket, etc.) to account or card IDs"
+        },
+        "customMembers": {
+          "type": "array",
+          "description": "Additional custom family members with id, name, and avatar"
+        },
+        "savedTrips": {
+          "type": "array",
+          "description": "Tracked trips and events with id, name, ended flag, and optional budget"
+        },
+        "savedContacts": {
+          "type": "array",
+          "description": "Frequent income/expense counterparties"
+        },
+        "jarTargets": {
+          "type": "object",
+          "description": "6 Jars financial allocation percentage targets (nec, ffa, educ, play, give, lts)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "budget", "privacyMask", "theme", "currency", "createdAt", "updatedAt"]
+    },
+    "TransactionRecord": {
+      "title": "TransactionRecord",
+      "description": "Individual income or expense transaction",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["in", "out"]
+        },
+        "cat": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "amount": {
+          "type": "number"
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "accountId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "beneficiary": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tripName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "counterparty": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "excludeFromReport": {
+          "type": "boolean"
+        },
+        "clientCreatedAt": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "type", "cat", "amount", "date", "createdAt", "updatedAt"]
+    },
+    "BankAccount": {
+      "title": "BankAccount",
+      "description": "Cash, bank account, or e-wallet balance",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "enum": ["bank", "wallet", "cash", "invest"]
+        },
+        "balance": {
+          "type": "number"
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "accountNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "bankName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "name", "type", "balance", "createdAt", "updatedAt"]
+    },
+    "CreditCardItem": {
+      "title": "CreditCardItem",
+      "description": "Credit card limit, debt balance, and statement cycle",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "bank": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "limit": {
+          "type": "number"
+        },
+        "currentBalance": {
+          "type": "number"
+        },
+        "statementDay": {
+          "type": "number"
+        },
+        "dueDay": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "name", "bank", "limit", "currentBalance", "statementDay", "dueDay", "createdAt", "updatedAt"]
+    },
+    "SavingsDepositItem": {
+      "title": "SavingsDepositItem",
+      "description": "Term savings deposit book",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "bank": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "accountNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "amount": {
+          "type": "number"
+        },
+        "termMonths": {
+          "type": "number"
+        },
+        "interestRate": {
+          "type": "number"
+        },
+        "startDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "maturityDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "rollover": {
+          "type": "string",
+          "enum": ["all", "principal", "none"]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "bank", "amount", "termMonths", "interestRate", "startDate", "maturityDate", "createdAt", "updatedAt"]
+    },
+    "InvestmentHoldingItem": {
+      "title": "InvestmentHoldingItem",
+      "description": "Stock, gold, fund, or crypto investment holding",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "type": {
+          "type": "string",
+          "enum": ["stock", "fund", "gold", "silver", "real_estate", "crypto"]
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "buyPrice": {
+          "type": "number"
+        },
+        "currentPrice": {
+          "type": "number"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "code", "name", "type", "quantity", "buyPrice", "currentPrice", "createdAt", "updatedAt"]
+    },
+    "DebtItemRecord": {
+      "title": "DebtItemRecord",
+      "description": "Loan given or debt owed",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dir": {
+          "type": "string",
+          "enum": ["lend", "borrow"]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "targetName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "amount": {
+          "type": "number"
+        },
+        "paidAmount": {
+          "type": "number"
+        },
+        "dueDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "interestRate": {
+          "type": "number"
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "dir", "name", "targetName", "amount", "paidAmount", "createdAt", "updatedAt"]
+    },
+    "SavingsGoalItem": {
+      "title": "SavingsGoalItem",
+      "description": "Financial savings goal",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "targetAmount": {
+          "type": "number"
+        },
+        "currentAmount": {
+          "type": "number"
+        },
+        "targetDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "title", "targetAmount", "currentAmount", "createdAt", "updatedAt"]
+    },
+    "RecurringItemRecord": {
+      "title": "RecurringItemRecord",
+      "description": "Recurring income or bill schedule",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["in", "out"]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "amount": {
+          "type": "number"
+        },
+        "cat": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "cycle": {
+          "type": "string",
+          "enum": ["monthly", "weekly", "yearly"]
+        },
+        "dayOfMonth": {
+          "type": "number"
+        },
+        "accountId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "autoRecord": {
+          "type": "boolean"
+        },
+        "lastRecorded": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "type", "name", "amount", "cat", "cycle", "dayOfMonth", "createdAt", "updatedAt"]
+    },
+    "TransferRecord": {
+      "title": "TransferRecord",
+      "description": "Internal transfer between user accounts",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fromId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "toId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "amount": {
+          "type": "number"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "fromId", "toId", "amount", "date", "createdAt", "updatedAt"]
+    },
+    "CustomCategoryItem": {
+      "title": "CustomCategoryItem",
+      "description": "User-created custom income/expense category",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "shortName": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "type": {
+          "type": "string",
+          "enum": ["in", "out"]
+        },
+        "group": {
+          "type": "string",
+          "enum": ["need", "want", "save", "income"]
+        },
+        "section": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "iconName": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "parentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "clientCreatedAt": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["key", "ownerId", "name", "shortName", "color", "type", "group", "section", "iconName", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profile owned by userId"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/LedgerSettings" },
+      "description": "Ledger settings and member nicknames for userId"
+    },
+    "/users/{userId}/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/TransactionRecord" },
+      "description": "User income and expense transactions"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/BankAccount" },
+      "description": "User cash, bank, and wallet accounts"
+    },
+    "/users/{userId}/cards/{cardId}": {
+      "schema": { "$ref": "#/entities/CreditCardItem" },
+      "description": "User credit cards"
+    },
+    "/users/{userId}/deposits/{depositId}": {
+      "schema": { "$ref": "#/entities/SavingsDepositItem" },
+      "description": "User savings deposits"
+    },
+    "/users/{userId}/holdings/{holdingId}": {
+      "schema": { "$ref": "#/entities/InvestmentHoldingItem" },
+      "description": "User investment holdings"
+    },
+    "/users/{userId}/debts/{debtId}": {
+      "schema": { "$ref": "#/entities/DebtItemRecord" },
+      "description": "User debt and loan records"
+    },
+    "/users/{userId}/goals/{goalId}": {
+      "schema": { "$ref": "#/entities/SavingsGoalItem" },
+      "description": "User savings goals"
+    },
+    "/users/{userId}/recurrings/{recId}": {
+      "schema": { "$ref": "#/entities/RecurringItemRecord" },
+      "description": "User recurring transaction items"
+    },
+    "/users/{userId}/transfers/{xferId}": {
+      "schema": { "$ref": "#/entities/TransferRecord" },
+      "description": "User internal account transfers"
+    },
+    "/users/{userId}/customCategories/{catId}": {
+      "schema": { "$ref": "#/entities/CustomCategoryItem" },
+      "description": "User custom transaction categories"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Sổ Thu Chi",
+  "description": "Quản lý thu chi cá nhân và gia đình, theo dõi tài sản ròng, sổ tiết kiệm, đầu tư, thẻ tín dụng, nợ và trợ lý phân tích tài chính AI thông minh.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
