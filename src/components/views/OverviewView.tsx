@@ -314,33 +314,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         />
       ) : (
         <>
-          {/* 0a. Lối tắt 1 chạm: Quét hóa đơn / Ảnh đơn hàng */}
-          {onScanFiles && (
-            <label className="w-full min-h-[64px] px-4 py-3 rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 flex items-center gap-3 active:scale-[0.99] transition-all cursor-pointer">
-              <span className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                <Camera size={22} />
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm sm:text-base font-extrabold">Quét hóa đơn / Ảnh đơn hàng</span>
-                <span className="block text-[11px] sm:text-xs opacity-90">
-                  Chụp hoặc chọn ảnh bill, đơn Shopee, chuyển khoản — AI tự ghi sổ
-                </span>
-              </span>
-              <ChevronRight size={20} className="shrink-0 opacity-90" />
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={e => {
-                  const files = Array.from(e.target.files || []);
-                  e.target.value = '';
-                  if (files.length > 0) onScanFiles(files);
-                }}
-              />
-            </label>
-          )}
-
           {/* 0b. Thông báo khoản định kỳ vừa tự ghi sổ */}
           <AutoPostedBanner onOpenManager={() => onOpenRecurring?.()} />
 
@@ -423,34 +396,51 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </div>
             </div>
 
-            {/* Quick Action Strip: Voice + Manual + Ledger */}
-            <div className="flex flex-wrap gap-2 pt-1">
+            {/* Hàng thao tác nhanh: Quét hóa đơn · Giọng nói · Ghi sổ nhanh · Lịch sử */}
+            <div className="grid grid-cols-4 gap-2 pt-1">
+              {onScanFiles && (
+                <label className="min-h-[68px] px-1.5 py-2 rounded-2xl text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center gap-1 text-center leading-tight active:scale-95 transition-all cursor-pointer bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/20">
+                  <Camera size={20} />
+                  <span>Quét hóa đơn</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => {
+                      const files = Array.from(e.target.files || []);
+                      e.target.value = '';
+                      if (files.length > 0) onScanFiles(files);
+                    }}
+                  />
+                </label>
+              )}
               {onOpenVoice && (
                 <button
                   type="button"
                   onClick={onOpenVoice}
-                  className="flex-1 min-w-[140px] min-h-[44px] py-3 px-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-105 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+                  className="min-h-[68px] px-1.5 py-2 rounded-2xl text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center gap-1 text-center leading-tight active:scale-95 transition-all cursor-pointer bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800"
                 >
-                  <Mic size={16} />
-                  <span>Ghi bằng giọng nói</span>
+                  <Mic size={20} />
+                  <span>Giọng nói</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={onOpenAddModal}
-                className="flex-1 min-w-[125px] min-h-[44px] py-3 px-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                className="min-h-[68px] px-1.5 py-2 rounded-2xl text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center gap-1 text-center leading-tight active:scale-95 transition-all cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100"
               >
-                <Plus size={16} />
+                <Plus size={20} />
                 <span>Ghi sổ nhanh</span>
               </button>
               <button
                 type="button"
                 onClick={() => onNavigateTab('ledger')}
-                className="min-h-[44px] py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                className="min-h-[68px] px-1.5 py-2 rounded-2xl text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center gap-1 text-center leading-tight active:scale-95 transition-all cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
                 title="Mở lịch sử ghi chép"
               >
-                <BookOpen size={16} />
-                <span className="hidden sm:inline">Lịch sử</span>
+                <BookOpen size={20} />
+                <span>Lịch sử</span>
               </button>
             </div>
           </div>
