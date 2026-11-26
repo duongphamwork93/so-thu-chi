@@ -24,6 +24,7 @@ import { JarTargets, Transaction } from '../../types/finance';
 import { getBeneficiaries } from '../../constants/beneficiaries';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
 import { classifyJar } from '../../utils/jars';
+import { JarSettingsModal } from '../modals/JarSettingsModal';
 import { canonicalCategoryKey } from '../../constants/categories';
 
 export type ReportMode = 'member' | 'category' | 'rule503020' | 'sixjars';
@@ -49,7 +50,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   initialType,
 }) => {
   const { data, currentMonth, shiftMonth, categoryMap, updateSettings } = useFinance();
-  const { isInPeriod, periodRange } = usePlus();
+  const { isInPeriod, periodRange, plus } = usePlus();
   const [reportMode, setReportMode] = useState<ReportMode>(initialMode || 'member');
   const [reportType, setReportType] = useState<'out' | 'in'>(initialType || 'out');
   const [expandedMemberKey, setExpandedMemberKey] = useState<string | null>(null);
@@ -415,7 +416,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       return { transactions: sorted, categoryBreakdown };
     };
 
-    const baseDenominator = totalIncome > 0 ? totalIncome : Math.max(totalExpense, 1);
+    // Hoàn tiền / voucher được cộng trả lại hũ NEC (không phải thu nhập mới)
+    data.records.forEach(r => {
+      if (r.type === 'in' && plus.cashbackToNec[r.id] && isInPeriod(r.date)) sums.nec -= plus.cashbackToNec[r.id];
+    });
+    sums.nec = Math.max(0, sums.nec);
+
+    // Ngân sách trần theo THU NHẬP ĐỊNH MỨC tháng (không phụ thuộc tổng chi thực tế)
+    const baseDenominator = Math.max(0, plus.monthlyIncome || 0);
 
     const jars: Array<{
       key: keyof JarTargets;
@@ -505,11 +513,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     ];
 
     return {
-      jars,
-      baseLabel: totalIncome > 0 ? 'thu nhập tháng' : 'tổng chi tháng',
+      jars: jars.map(j => {
+        const budget = j.targetAmount;
+        const spent = Math.max(0, j.actual);
+        const remaining = budget - spent;
+        // % mục tiêu = 0% mà có chi → coi như vượt trần
+        const usedPct = budget > 0 ? (spent / budget) * 100 : spent > 0 ? Infinity : 0;
+        return { ...j, actual: spent, budget, remaining, usedPct };
+      }),
       baseDenominator,
     };
-  }, [expenseTransactions, categoryMap, jarTargets, totalIncome, totalExpense]);
+  }, [expenseTransactions, categoryMap, jarTargets, data.records, plus.monthlyIncome, plus.cashbackToNec, isInPeriod]);
 
   // SVG Donut calculation for Categories
   const donutSlices = useMemo(() => {
@@ -1225,97 +1239,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
                     Phân Tích Tài Chính 6 Hũ
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    So sánh tỷ lệ chi thực tế theo {sixJarsReport.baseLabel} ({formatVNDShort(sixJarsReport.baseDenominator)})
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Ngân sách theo thu nhập định mức:{' '}
+                    <strong className="money-mask text-slate-700 dark:text-slate-200">
+                      {formatVNDShort(sixJarsReport.baseDenominator)}
+                    </strong>
+                    /tháng
                   </p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setIsEditingJars(prev => !prev)}
-                className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
+                onClick={() => setIsEditingJars(true)}
+                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
                 <SlidersHorizontal size={13} />
                 <span>Thiết lập %</span>
               </button>
             </div>
 
-            {/* Settings Editor Drawer for 6 Jars */}
-            {isEditingJars && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800 dark:text-slate-100">
-                    Tùy chỉnh tỷ lệ % mục tiêu 6 Hũ
-                  </span>
-                  <span
-                    className={`font-extrabold tabular-nums ${
-                      draftJarSum === 100 ? 'text-emerald-600' : 'text-rose-500'
-                    }`}
-                  >
-                    Tổng: {draftJarSum}% / 100%
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(
-                    [
-                      { k: 'nec', label: 'NEC (Thiết yếu)' },
-                      { k: 'ffa', label: 'FFA (Đầu tư)' },
-                      { k: 'educ', label: 'EDUC (Giáo dục)' },
-                      { k: 'play', label: 'PLAY (Hưởng thụ)' },
-                      { k: 'give', label: 'GIVE (Cho đi)' },
-                      { k: 'lts', label: 'LTS (Tiết kiệm)' },
-                    ] as Array<{ k: keyof JarTargets; label: string }>
-                  ).map(item => (
-                    <div key={item.k} className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block">
-                        {item.label}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={draftJars[item.k]}
-                          onChange={e =>
-                            setDraftJars(prev => ({
-                              ...prev,
-                              [item.k]: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                            }))
-                          }
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white pr-7 tabular-nums"
-                        />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">
-                          %
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setDraftJars(DEFAULT_JARS)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <RotateCcw size={13} />
-                    <span>Mặc định (55/10/10/10/5/10)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={draftJarSum !== 100}
-                    onClick={handleSaveJarTargets}
-                    className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Check size={14} />
-                    <span>Lưu tỷ lệ</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            <JarSettingsModal isOpen={isEditingJars} onClose={() => setIsEditingJars(false)} />
 
             {/* 6 Jars Bars Overview */}
             <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
@@ -1324,7 +1268,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
             <div className="space-y-3">
               {sixJarsReport.jars.map(jar => {
-                const isOver = jar.actualPct > jar.targetPct && (jar.key === 'nec' || jar.key === 'play');
+                const isOver = jar.remaining < 0 || jar.usedPct > 100;
+                const isNear = !isOver && jar.usedPct >= 80;
+                const barColor = isOver ? '#F43F5E' : isNear ? '#F59E0B' : jar.color;
+                const barWidth = Math.min(100, Number.isFinite(jar.usedPct) ? jar.usedPct : 100);
                 const isExpanded = expandedJarKey === jar.key;
                 return (
                   <div
@@ -1338,60 +1285,63 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setExpandedJarKey(prev => (prev === jar.key ? null : jar.key))}
+                      aria-expanded={isExpanded}
                       className="w-full text-left p-3.5 space-y-2 cursor-pointer"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="px-2 py-0.5 rounded-md text-[10px] font-black text-white shrink-0"
-                              style={{ backgroundColor: jar.color }}
-                            >
-                              {jar.code}
-                            </span>
-                            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                              {jar.label}
-                            </span>
-                            <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                              ({jar.transactions.length} khoản)
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 truncate">{jar.desc}</p>
+                      {/* Dòng 1: Mã hũ + tên đầy đủ + số khoản | Số tiền đã chi */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span
+                            className="px-2 py-0.5 rounded-md text-[10px] font-black text-white shrink-0"
+                            style={{ backgroundColor: jar.color }}
+                          >
+                            {jar.code}
+                          </span>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white leading-snug break-words">
+                            {jar.label}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+                            ({jar.transactions.length} khoản)
+                          </span>
                         </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-right tabular-nums">
-                            <p className="money-mask text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                              {formatVND(jar.actual)}
-                            </p>
-                            <p
-                              className={`text-[11px] font-bold ${
-                                isOver ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'
-                              }`}
-                            >
-                              Thực tế {jar.actualPct}% · Mục tiêu {jar.targetPct}%
-                            </p>
-                          </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="money-mask text-sm sm:text-base font-black text-slate-900 dark:text-white tabular-nums">
+                            {formatVND(jar.actual)}
+                          </span>
                           <span className="text-slate-400">
                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </span>
                         </div>
                       </div>
 
-                      {/* Dual Progress Visual: Actual vs Target Marker */}
-                      <div className="relative h-2.5 w-full bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden">
+                      {/* Dòng 2: Thanh % sử dụng ngân sách */}
+                      <div
+                        className="h-2.5 w-full bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden"
+                        role="progressbar"
+                        aria-valuenow={Number.isFinite(jar.usedPct) ? Math.round(jar.usedPct) : 100}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
                         <div
                           className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(100, jar.actualPct)}%`,
-                            backgroundColor: isOver ? '#F43F5E' : jar.color,
-                          }}
+                          style={{ width: `${barWidth}%`, backgroundColor: barColor }}
                         />
-                        <div
-                          className="absolute top-0 bottom-0 w-0.5 bg-slate-900/70 dark:bg-white/80"
-                          style={{ left: `${Math.min(99, jar.targetPct)}%` }}
-                          title={`Mục tiêu: ${jar.targetPct}% (${formatVND(jar.targetAmount)})`}
-                        />
+                      </div>
+
+                      {/* Dòng 3: Ngân sách | Còn lại / Vượt trần */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] sm:text-xs tabular-nums">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Ngân sách: <span className="money-mask">{formatVND(jar.budget)}</span> ({jar.targetPct}%)
+                        </span>
+                        {isOver ? (
+                          <strong className="money-mask text-rose-600 dark:text-rose-400">
+                            Vượt trần: {formatVND(Math.abs(jar.remaining))}
+                          </strong>
+                        ) : (
+                          <strong className="money-mask text-green-600 dark:text-green-400">
+                            Còn lại: {formatVND(jar.remaining)}
+                          </strong>
+                        )}
                       </div>
                     </button>
 
