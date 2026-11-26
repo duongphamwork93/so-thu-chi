@@ -1,0 +1,314 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  /* Default Theme: Bạc Hà Pastel (Sweet Mint Macaron) */
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --app-canvas-bg: #f4fcf9;
+    --app-canvas-dark-bg: #07110d;
+
+    --color-emerald-50: #f2fcf8;
+    --color-emerald-100: #dcf7ec;
+    --color-emerald-200: #bbeedb;
+    --color-emerald-300: #8fddc2;
+    --color-emerald-400: #66caa8;
+    --color-emerald-500: #4bb591;
+    --color-emerald-600: #399978;
+    --color-emerald-700: #2e7b60;
+    --color-emerald-800: #25624d;
+    --color-emerald-900: #1d4d3d;
+    --color-emerald-950: #112e24;
+
+    --color-teal-50: #effbf9;
+    --color-teal-100: #d5f5f0;
+    --color-teal-200: #b2ece3;
+    --color-teal-300: #86ddd1;
+    --color-teal-400: #5ecab9;
+    --color-teal-500: #45b3a2;
+    --color-teal-600: #369486;
+    --color-teal-700: #2a756a;
+    --color-teal-800: #225d55;
+    --color-teal-900: #1b4943;
+    --color-teal-950: #102b28;
+
+    --color-cyan-50: #eff9fe;
+    --color-cyan-100: #d9f0fc;
+    --color-cyan-200: #bae2fa;
+    --color-cyan-300: #91cef5;
+    --color-cyan-400: #69b8ec;
+    --color-cyan-500: #4ca0db;
+    --color-cyan-600: #3b85bc;
+    --color-cyan-700: #2f6b97;
+    --color-cyan-800: #255578;
+    --color-cyan-900: #1d435f;
+    --color-cyan-950: #112839;
+
+    --color-indigo-50: #f4f6ff;
+    --color-indigo-100: #e7ecff;
+    --color-indigo-200: #d0dbff;
+    --color-indigo-300: #b1c2fc;
+    --color-indigo-400: #90a6f7;
+    --color-indigo-500: #738beb;
+    --color-indigo-600: #5d73cf;
+    --color-indigo-700: #4b5dab;
+
+    --color-violet-50: #f8f4ff;
+    --color-violet-100: #eee6ff;
+    --color-violet-200: #dcceff;
+    --color-violet-300: #c3adfc;
+    --color-violet-400: #a88cf7;
+    --color-violet-500: #8e70eb;
+    --color-violet-600: #7658cc;
+    --color-violet-700: #5f45a8;
+  }
+
+  /* Theme: Vàng Bơ Pastel (Creamy Butter & Honey Macaron) */
+  html[data-color-theme="amber"] {
+    --app-canvas-bg: #fffdf4;
+    --app-canvas-dark-bg: #110e06;
+
+    --color-emerald-50: #fffdf2;
+    --color-emerald-100: #fff7d6;
+    --color-emerald-200: #ffecb3;
+    --color-emerald-300: #ffdd85;
+    --color-emerald-400: #ffc957;
+    --color-emerald-500: #f2b43b;
+    --color-emerald-600: #d99626;
+    --color-emerald-700: #b5781b;
+    --color-emerald-800: #915f16;
+    --color-emerald-900: #734b12;
+    --color-emerald-950: #452b08;
+
+    --color-teal-50: #fff9f0;
+    --color-teal-100: #ffedd9;
+    --color-teal-200: #ffdab3;
+    --color-teal-300: #ffc285;
+    --color-teal-400: #ffa95c;
+    --color-teal-500: #f29144;
+    --color-teal-600: #d9772e;
+    --color-teal-700: #b55e21;
+    --color-teal-800: #914a1a;
+    --color-teal-900: #733a15;
+    --color-teal-950: #45220b;
+
+    --color-cyan-50: #fffdf5;
+    --color-cyan-100: #fff9df;
+    --color-cyan-200: #fff0bd;
+    --color-cyan-300: #ffe294;
+    --color-cyan-400: #ffd16b;
+    --color-cyan-500: #f2bd4b;
+    --color-cyan-600: #d69f30;
+    --color-cyan-700: #b08022;
+    --color-cyan-800: #8d661b;
+    --color-cyan-900: #6f5015;
+    --color-cyan-950: #422f0b;
+  }
+
+  /* Theme: Hồng Phấn Pastel (Strawberry Milk & Sakura Blossom Macaron) */
+  html[data-color-theme="pink"] {
+    --app-canvas-bg: #fff7fa;
+    --app-canvas-dark-bg: #14090f;
+
+    --color-emerald-50: #fff5f9;
+    --color-emerald-100: #ffe6f0;
+    --color-emerald-200: #ffcce0;
+    --color-emerald-300: #ffa8ca;
+    --color-emerald-400: #ff85b5;
+    --color-emerald-500: #f2669d;
+    --color-emerald-600: #dc4d85;
+    --color-emerald-700: #ba3b6d;
+    --color-emerald-800: #962f58;
+    --color-emerald-900: #782647;
+    --color-emerald-950: #4a1429;
+
+    --color-teal-50: #fff6f8;
+    --color-teal-100: #ffe8ee;
+    --color-teal-200: #ffd0dc;
+    --color-teal-300: #ffb0c4;
+    --color-teal-400: #ff90ac;
+    --color-teal-500: #f57295;
+    --color-teal-600: #df587d;
+    --color-teal-700: #be4366;
+    --color-teal-800: #9a3552;
+    --color-teal-900: #7b2a42;
+    --color-teal-950: #4b1626;
+
+    --color-cyan-50: #fff7fa;
+    --color-cyan-100: #ffecf3;
+    --color-cyan-200: #ffd6e6;
+    --color-cyan-300: #ffb8d3;
+    --color-cyan-400: #ff98bf;
+    --color-cyan-500: #f57ba9;
+    --color-cyan-600: #df6292;
+    --color-cyan-700: #bd4c79;
+    --color-cyan-800: #993c62;
+    --color-cyan-900: #7a304e;
+    --color-cyan-950: #4a1a2e;
+  }
+
+  /* Theme: Xanh Trời Pastel (Baby Sky & Periwinkle Cotton Candy) */
+  html[data-color-theme="blue"] {
+    --app-canvas-bg: #f5f9ff;
+    --app-canvas-dark-bg: #070d17;
+
+    --color-emerald-50: #f4f9ff;
+    --color-emerald-100: #e3f0ff;
+    --color-emerald-200: #c7e0ff;
+    --color-emerald-300: #9ec9ff;
+    --color-emerald-400: #75b1fc;
+    --color-emerald-500: #5496f0;
+    --color-emerald-600: #3e7dd8;
+    --color-emerald-700: #3164b3;
+    --color-emerald-800: #28508f;
+    --color-emerald-900: #204073;
+    --color-emerald-950: #132645;
+
+    --color-teal-50: #f3faff;
+    --color-teal-100: #e0f3ff;
+    --color-teal-200: #c2e5ff;
+    --color-teal-300: #96d0fa;
+    --color-teal-400: #6bb8f2;
+    --color-teal-500: #4d9fe0;
+    --color-teal-600: #3a84c4;
+    --color-teal-700: #2e699e;
+    --color-teal-800: #25547e;
+    --color-teal-900: #1d4264;
+    --color-teal-950: #11283d;
+
+    --color-cyan-50: #f5f7ff;
+    --color-cyan-100: #e6ecff;
+    --color-cyan-200: #cedbff;
+    --color-cyan-300: #aabfff;
+    --color-cyan-400: #86a2fa;
+    --color-cyan-500: #6887ed;
+    --color-cyan-600: #516fd4;
+    --color-cyan-700: #4158ae;
+    --color-cyan-800: #34478c;
+    --color-cyan-900: #2a3870;
+    --color-cyan-950: #192145;
+  }
+
+  /* Theme: Tím Phấn Pastel (Milky Taro & Lilac Macaron) */
+  html[data-color-theme="violet"] {
+    --app-canvas-bg: #faf6ff;
+    --app-canvas-dark-bg: #0c0817;
+
+    --color-emerald-50: #f9f5ff;
+    --color-emerald-100: #efe6ff;
+    --color-emerald-200: #dfceff;
+    --color-emerald-300: #c8adff;
+    --color-emerald-400: #b08dfc;
+    --color-emerald-500: #9670ed;
+    --color-emerald-600: #7e58d6;
+    --color-emerald-700: #6645b3;
+    --color-emerald-800: #52378f;
+    --color-emerald-900: #412c73;
+    --color-emerald-950: #271945;
+
+    --color-teal-50: #fbf5ff;
+    --color-teal-100: #f3e6ff;
+    --color-teal-200: #e6ceff;
+    --color-teal-300: #d4adff;
+    --color-teal-400: #be8dfc;
+    --color-teal-500: #a770ed;
+    --color-teal-600: #8f58d6;
+    --color-teal-700: #7545b3;
+    --color-teal-800: #5e378f;
+    --color-teal-900: #4b2c73;
+    --color-teal-950: #2d1945;
+
+    --color-cyan-50: #fdf5fc;
+    --color-cyan-100: #fae8f8;
+    --color-cyan-200: #f4d0f1;
+    --color-cyan-300: #eab0e6;
+    --color-cyan-400: #dc8fd8;
+    --color-cyan-500: #c973c6;
+    --color-cyan-600: #b05bae;
+    --color-cyan-700: #914690;
+    --color-cyan-800: #753874;
+    --color-cyan-900: #5e2c5d;
+    --color-cyan-950: #391939;
+  }
+
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    position: relative;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: text;
+  }
+
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    position: relative;
+  }
+
+  /* Prevent iOS date/time inputs from exceeding parent containers */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left !important;
+    min-height: 1.25em !important;
+  }
+}
+
+/* Privacy Mask mode */
+.privacy-mask .money-mask {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+.privacy-mask .money-mask:hover {
+  filter: blur(2px);
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
