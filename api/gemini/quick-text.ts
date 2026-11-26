@@ -39,7 +39,16 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { text, currentDate } = req.body || {};
+    const { text, currentDate, categories } = req.body || {};
+    const categoryListText =
+      Array.isArray(categories) && categories.length > 0
+        ? `\nDanh mục hợp lệ (cat phải là một trong các key sau):\n` +
+          categories
+            .filter((c: any) => c && typeof c.key === 'string')
+            .slice(0, 200)
+            .map((c: any) => `- ${c.key} (${String(c.name || c.key).slice(0, 80)} - ${c.type === 'in' ? 'Thu' : 'Chi'})`)
+            .join('\n')
+        : '';
     if (!text) return res.status(400).json({ error: 'Text is required' });
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -66,6 +75,7 @@ Ví dụ:
 - "nhận lương 28 triệu về vcb" => amount: 28000000, type: "in", cat: "luong", note: "Lương tháng", account: "vietcombank"
 - "hôm qua cà phê highland 65k" => date sẽ tính là ngày hôm qua (${todayStr} trừ 1 ngày).
 
+${categoryListText}
 Hãy bóc tách thành giao dịch chuẩn.`;
 
     const baseConfig = {

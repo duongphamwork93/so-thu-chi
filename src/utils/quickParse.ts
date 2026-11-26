@@ -1,4 +1,5 @@
-import { guessCategoryByText, removeVietnameseAccents } from '../constants/categories';
+import { removeVietnameseAccents } from '../constants/categories';
+import { autoClassifyTransaction } from './autoClassify';
 import { StorageData, TransactionType } from '../types/finance';
 
 export interface QuickParseResult {
@@ -153,12 +154,12 @@ export function parseQuickText(raw: string, data: StorageData): QuickParseResult
   else if (picked?.sign === '-') type = 'out';
   else if (INCOME_HINT.test(' ' + norm(noteSource) + ' ')) type = 'in';
 
-  let catGuess = guessCategoryByText(noteSource);
+  let catGuess = autoClassifyTransaction(noteSource).cat;
   if (catGuess === 'khac') {
     const nn = ' ' + norm(noteSource) + ' ';
     const forKid = /\b(cho con|cho be|cua con|cua be)\b/.test(nn);
     if (/\b(sua chua|sua|banh|keo|an dam|vitamin)\b/.test(nn)) catGuess = forKid ? 'con_sua_bim' : 'an_uong';
-    else if (forKid) catGuess = 'con_do_dung';
+    else if (forKid) catGuess = 'con_quan_ao';
   }
   const incomeKeys = new Set(['luong', 'thuong', 'lai_tiet_kiem', 'loi_dau_tu', 'duoc_tang', 'thu_no', 'thu_phu', 'hoan_tien']);
   let cat = catGuess;

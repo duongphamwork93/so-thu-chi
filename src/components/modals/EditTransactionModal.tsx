@@ -18,6 +18,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { removeVietnameseAccents } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
+import { CategorySelectDropdown } from '../CategorySelectDropdown';
 import { formatVND, parseVietnameseMoneyText } from '../../utils/formatters';
 import { formatCurrencyInput, parseCurrencyInput } from '../../utils/numberFormatters';
 import { Transaction, TransactionType, BeneficiaryKey } from '../../types/finance';
@@ -178,9 +179,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="bg-white dark:bg-slate-900 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[88vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom duration-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl h-[92dvh] sm:h-auto sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom duration-200 overflow-hidden">
         {/* Header */}
-        <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+        <div className="shrink-0 px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <span className="text-xl">✏️</span>
             <div>
@@ -202,7 +203,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
           {/* Type Toggle */}
           <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl gap-1">
             <button
@@ -264,80 +266,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             </div>
           </div>
 
-          {/* Category Picker */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block">
-              Chọn danh mục
-            </label>
-
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={catSearch}
-                onChange={e => setCatSearch(e.target.value)}
-                placeholder="Tìm hạng mục (VD: ăn sáng, xăng, điện...)..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            {availableSections.length > 1 && !catSearch.trim() && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSection('all')}
-                  className={`min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer border ${
-                    selectedSection === 'all'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  Tất cả ({currentCategories.length})
-                </button>
-                {availableSections.map(sec => (
-                  <button
-                    key={sec}
-                    type="button"
-                    onClick={() => setSelectedSection(sec)}
-                    className={`min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer border ${
-                      selectedSection === sec
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {sec}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1 border border-slate-100 dark:border-slate-800 rounded-2xl">
-              {filteredCategories.map(cat => {
-                const isSelected = selectedCat === cat.key;
-                return (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    onClick={() => setSelectedCat(cat.key)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 scale-95 shadow-xs'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent'
-                    }`}
-                  >
-                    <CategoryIcon catKey={cat.key} size="sm" />
-                    <span
-                      className={`text-[10px] mt-1 line-clamp-1 ${
-                        isSelected ? 'font-bold text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Category Picker (dùng chung) */}
+          <CategorySelectDropdown type={type} label="Danh mục" value={selectedCat} onChange={setSelectedCat} />
 
           {/* Beneficiary Selector */}
           {type === 'out' && (
@@ -558,8 +488,10 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-2 pb-[max(1.75rem,env(safe-area-inset-bottom,20px))] flex items-center gap-2">
+          </div>
+
+          {/* Action Buttons — ghim cố định ở đáy */}
+          <div className="shrink-0 sticky bottom-0 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,16px))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
             <button
               type="button"
               onClick={handleDelete}

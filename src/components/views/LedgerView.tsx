@@ -394,7 +394,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal, onOpenRe
                           <CategoryIcon catKey={tx.cat} size="md" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                              <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 break-words">
                                 {cat.name}
                               </p>
                               {beneficiaryItem && (
