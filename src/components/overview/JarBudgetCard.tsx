@@ -116,7 +116,7 @@ export const JarBudgetCard: React.FC<JarBudgetCardProps> = ({ onOpenJarReport })
       <div className="space-y-2.5">
         {jars.map(j => {
           const over = j.remaining < 0;
-          const barColor = over ? '#F43F5E' : j.isVariable && j.usedPct >= 80 ? '#F59E0B' : j.color;
+          const barColor = over ? '#F43F5E' : j.usedPct >= 80 ? '#F59E0B' : j.color;
           return (
             <div key={j.key} className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
               <div className="flex items-center justify-between gap-2">
