@@ -49,6 +49,10 @@ export interface PlusData {
   goalDepositLinks: Record<string, string[]>;
   /** Giao dịch hoàn tiền/voucher được cộng trả lại hũ NEC: txId → số tiền */
   cashbackToNec: Record<string, number>;
+  /** Giao dịch định kỳ tự ghi đã được người dùng đóng thông báo: txId → true */
+  dismissedAutoTx: Record<string, true>;
+  /** Đã tạo 2 mẫu định kỳ (Claude Pro, YouTube Premium) hay chưa */
+  recurringSeeded: boolean;
 }
 
 export const DEFAULT_MONTHLY_INCOME = 48_000_000;

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Edit3,
   CheckCircle2,
+  CalendarClock,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { usePlus } from '../../context/PlusContext';
@@ -24,9 +25,10 @@ import { ClearTransactionsModal } from '../modals/ClearTransactionsModal';
 
 interface LedgerViewProps {
   onOpenAddModal: (type?: TransactionType) => void;
+  onOpenRecurring?: () => void;
 }
 
-export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
+export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal, onOpenRecurring }) => {
   const {
     data,
     currentMonth,
@@ -174,8 +176,21 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
             </select>
           </div>
 
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            {filteredRecords.length} giao dịch
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredRecords.length} giao dịch
+            </div>
+            {onOpenRecurring && (
+              <button
+                type="button"
+                onClick={onOpenRecurring}
+                className="w-10 h-10 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                title="Khoản chi định kỳ"
+                aria-label="Khoản chi định kỳ"
+              >
+                <CalendarClock size={18} />
+              </button>
+            )}
           </div>
         </div>
 

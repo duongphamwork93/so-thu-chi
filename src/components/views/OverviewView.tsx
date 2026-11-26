@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { usePlus } from '../../context/PlusContext';
 import { JarBudgetCard } from '../overview/JarBudgetCard';
+import { AutoPostedBanner } from '../overview/AutoPostedBanner';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORY_MAP } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
@@ -46,6 +47,7 @@ interface OverviewViewProps {
   onOpenVoice?: () => void;
   onOpenTripsContacts?: (tab: 'trips' | 'contacts') => void;
   onOpenDebts?: () => void;
+  onOpenRecurring?: () => void;
   initialSection?: 'overview' | 'report';
 }
 
@@ -56,6 +58,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onOpenVoice,
   onOpenTripsContacts,
   onOpenDebts,
+  onOpenRecurring,
   initialSection = 'overview',
 }) => {
   const { data, currentMonth, recordRecurringNow, categoryMap } = useFinance();
@@ -260,22 +263,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       });
     });
 
-  data.recs.forEach(rec => {
-    const isDue = rec.dayOfMonth <= todayDay && rec.lastRecorded !== currentMonth;
-    if (isDue) {
-      dueItems.push({
-        id: rec.id,
-        type: 'rec',
-        title: `Đến hạn: ${rec.name}`,
-        subtitle: `Ngày ${rec.dayOfMonth} hàng tháng`,
-        amount: rec.amount,
-        badge: 'Ghi ngay',
-        isUrgent: true,
-        action: () => recordRecurringNow(rec.id),
-      });
-    }
-  });
-
   const openSpecificReport = (mode: ReportMode, type: 'out' | 'in' = 'out') => {
     setReportModeIntent(mode);
     setReportTypeIntent(type);
@@ -323,6 +310,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         />
       ) : (
         <>
+          {/* 0b. Thông báo khoản định kỳ vừa tự ghi sổ */}
+          <AutoPostedBanner onOpenManager={() => onOpenRecurring?.()} />
+
           {/* 1. CARD 1: TÀI CHÍNH HIỆN TẠI + TỔNG CÓ / TỔNG NỢ + VOICE SHORTCUT */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

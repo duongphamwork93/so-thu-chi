@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Palette,
+  CalendarClock,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { BackupRestoreCard } from '../BackupRestoreCard';
@@ -29,6 +30,7 @@ interface MoreHubViewProps {
   onOpenAddModal: () => void;
   onOpenGitHubModal?: () => void;
   onOpenAccountSync?: () => void;
+  onOpenRecurring?: () => void;
 }
 
 export const MoreHubView: React.FC<MoreHubViewProps> = ({
@@ -36,6 +38,7 @@ export const MoreHubView: React.FC<MoreHubViewProps> = ({
   onOpenAddModal,
   onOpenGitHubModal,
   onOpenAccountSync,
+  onOpenRecurring,
 }) => {
   const { data, customCategories, syncStatus } = useFinance();
   const { user } = useAuth();
@@ -132,6 +135,28 @@ export const MoreHubView: React.FC<MoreHubViewProps> = ({
           </button>
         )}
       </div>
+
+      {/* Khoản chi định kỳ / Thuê bao */}
+      {onOpenRecurring && (
+        <button
+          type="button"
+          onClick={onOpenRecurring}
+          className="w-full min-h-[64px] bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-all cursor-pointer"
+        >
+          <span className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <CalendarClock size={22} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-bold text-slate-900 dark:text-white">Khoản chi định kỳ / Thuê bao</span>
+            <span className="block text-[11px] text-slate-500 truncate">
+              {data.recs.length > 0
+                ? `${data.recs.filter(r => r.autoRecord !== false).length} khoản đang tự ghi sổ hằng tháng`
+                : 'Claude, YouTube, điện, nước, học phí… tự ghi sổ mỗi tháng'}
+            </span>
+          </span>
+          <ChevronRight size={18} className="text-slate-400 shrink-0" />
+        </button>
+      )}
 
       {/* Primary Feature Hub (MISA Grid Style) */}
       <div className="space-y-2">
