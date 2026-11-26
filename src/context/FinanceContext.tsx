@@ -27,7 +27,12 @@ import {
   Transaction,
 } from '../types/finance';
 import { formatVND, getCurrentMonthString, getTodayDateString, shiftMonthString } from '../utils/formatters';
-import { computeStatementSnapshot, getLatestStatementDate } from '../utils/creditCardStatement';
+import {
+  computeStatementSnapshot,
+  getCardStatementSummary,
+  getLatestStatementDate,
+  StatementOverrides,
+} from '../utils/creditCardStatement';
 import {
   CategoryInfo,
   EXPENSE_CATEGORIES,
@@ -207,6 +212,12 @@ interface FinanceContextType {
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
   deleteCreditCard: (id: string) => void;
   payCreditCard: (cardId: string, fromAccountId: string, amount: number, note?: string) => void;
+  /**
+   * Đối soát số chốt sao kê thực tế từ ngân hàng: tự sinh bút toán điều chỉnh
+   * (phí khi ngân hàng chốt cao hơn, hoàn tiền khi thấp hơn) và đồng bộ dư nợ hiện tại.
+   * Trả về phần chênh lệch đã điều chỉnh (dương = phí, âm = hoàn tiền).
+   */
+  reconcileCardStatement: (cardId: string, actualStatement: number, overrides?: StatementOverrides) => number;
 
   // Debts
   addDebt: (debt: Omit<DebtItem, 'id'>, sourceAccountId?: string) => void;
@@ -1720,6 +1731,82 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const reconcileCardStatement = (
+    cardId: string,
+    actualStatement: number,
+    overrides?: StatementOverrides
+  ): number => {
+    const prevSnap = dataRef.current;
+    const card = prevSnap.cards.find(c => c.id === cardId);
+    if (!card || !Number.isFinite(actualStatement) || actualStatement < 0) return 0;
+
+    const todayStr = getTodayDateString();
+    const summary = getCardStatementSummary(card, prevSnap.records, todayStr, overrides);
+    const latestStmtDate = summary.latestStatementDate;
+    const diff = Math.round(actualStatement - summary.statementBalance);
+    const newCardBalance = Math.max(0, card.currentBalance + diff);
+
+    const adjTx: Transaction | null =
+      diff !== 0
+        ? {
+            id: 'tx_adj_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            type: diff > 0 ? 'out' : 'in',
+            cat: diff > 0 ? 'phi_chuyen_khoan' : 'thu_khac',
+            amount: Math.abs(diff),
+            date: todayStr,
+            note:
+              diff > 0
+                ? `Điều chỉnh sao kê ${card.name}: phí/lãi ngân hàng`
+                : `Điều chỉnh sao kê ${card.name}: hoàn tiền`,
+            accountId: cardId,
+            // Hoàn tiền không phải thu nhập mới → không tính vào báo cáo
+            excludeFromReport: diff < 0 ? true : undefined,
+            createdAt: Date.now(),
+          }
+        : null;
+
+    setData(prev => ({
+      ...prev,
+      cards: prev.cards.map(c =>
+        c.id === cardId
+          ? {
+              ...c,
+              currentBalance: newCardBalance,
+              statementBalance: Math.max(0, Math.round(actualStatement)),
+              statementPaidAmount: summary.hasRecordedStatement ? c.statementPaidAmount : 0,
+              lastStatementDate: latestStmtDate,
+            }
+          : c
+      ),
+      records: adjTx ? [adjTx, ...prev.records] : prev.records,
+    }));
+
+    runCloudWrite(async uid => {
+      const batch = writeBatch(db);
+      const cid = sanitizeId(cardId);
+      batch.update(doc(db, 'users', uid, 'cards', cid), {
+        currentBalance: newCardBalance,
+        statementBalance: Math.max(0, Math.round(actualStatement)),
+        statementPaidAmount: summary.hasRecordedStatement
+          ? Math.max(0, Number(card.statementPaidAmount) || 0)
+          : 0,
+        lastStatementDate: latestStmtDate,
+        updatedAt: serverTimestamp(),
+      });
+      if (adjTx) {
+        batch.set(
+          doc(db, 'users', uid, 'transactions', sanitizeId(adjTx.id)),
+          toFirestoreTransaction(adjTx, uid, true)
+        );
+      }
+      await batch.commit().catch(err =>
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/cards/${cid}`)
+      );
+    });
+
+    return diff;
+  };
+
   // Debts
   const addDebt = (debt: Omit<DebtItem, 'id'>, sourceAccountId?: string) => {
     const newDebt: DebtItem = {
@@ -2323,6 +2410,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateCreditCard,
         deleteCreditCard,
         payCreditCard,
+        reconcileCardStatement,
         addDebt,
         updateDebt,
         deleteDebt,

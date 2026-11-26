@@ -32,6 +32,10 @@ import { getBeneficiaries } from '../../constants/beneficiaries';
 import { AddCategoryModal } from './AddCategoryModal';
 import { ParsedVoiceTransaction } from './VoiceTransactionModal';
 import { ReceiptScannerPanel } from '../ReceiptScannerPanel';
+import { usePlus } from '../../context/PlusContext';
+import { parseQuickText } from '../../utils/quickParse';
+import { evaluateSpendNotices } from '../../utils/spendGuard';
+import { showToast } from '../../utils/toast';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -52,7 +56,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   prefilledData,
   onOpenVoice,
 }) => {
-  const { addTransaction, updateSettings, data, allExpenseCategories, allIncomeCategories } = useFinance();
+  const { addTransaction, updateSettings, data, allExpenseCategories, allIncomeCategories, categoryMap } = useFinance();
+  const { plus } = usePlus();
 
   const [entryMode, setEntryMode] = useState<'manual' | 'receipt'>('manual');
   const [type, setType] = useState<TransactionType>(initialType);
@@ -221,15 +226,34 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   if (!isOpen || typeof document === 'undefined' || !document.body) return null;
 
-  const handleQuickParse = async () => {
-    if (!quickInput.trim()) return;
+  /** Bộ đọc trên máy: điền ngay lập tức, không cần mạng. Trả về true nếu đủ tin cậy. */
+  const applyLocalParse = (text: string): boolean => {
+    const parsed = parseQuickText(text, data);
+    if (parsed.amount > 0) setAmountStr(formatCurrencyInput(parsed.amount));
+    setType(parsed.type);
+    setSelectedCat(parsed.cat);
+    setSelectedSection('all');
+    setCatSearch('');
+    if (parsed.note) setNote(parsed.note);
+    if (parsed.date) setDate(parsed.date);
+    if (parsed.accountId) {
+      setSelectedAccount(parsed.accountId);
+      setHasManualAccount(true);
+    }
+    return parsed.amount > 0 && parsed.cat !== 'khac' && parsed.cat !== 'thu_khac';
+  };
+
+  const handleQuickParse = async (textOverride?: string) => {
+    const text = (textOverride ?? quickInput).trim();
+    if (!text) return;
+    if (applyLocalParse(text)) return;
     setIsParsingQuick(true);
 
     try {
       const res = await fetch('/api/gemini/quick-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: quickInput, currentDate: date }),
+        body: JSON.stringify({ text, currentDate: date }),
       });
 
       if (res.ok) {
@@ -239,7 +263,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           if (parsed.type === 'in' || parsed.type === 'out') {
             setType(parsed.type);
           }
-          if (parsed.amount) {
+          if (parsed.amount && parsed.amount > 0) {
             setAmountStr(formatCurrencyInput(parsed.amount));
           }
           if (parsed.category) {
@@ -254,7 +278,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             setDate(parsed.date);
           }
           const nextType = parsed.type === 'in' || parsed.type === 'out' ? parsed.type : type;
-          if (parsed.account) {
+          if (parsed.account && !parseQuickText(text, data).accountId) {
             const accMatch =
               data.accts.find(a => a.name.toLowerCase().includes(parsed.account.toLowerCase())) ||
               data.cards.find(c => c.name.toLowerCase().includes(parsed.account.toLowerCase()));
@@ -262,10 +286,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               setSelectedAccount(accMatch.id);
               setHasManualAccount(true);
             }
-          } else {
+          } else if (!parseQuickText(text, data).accountId) {
             const auto = resolveDefaultPaymentAccountId({
               type: nextType,
-              text: `${quickInput} ${parsed.note || ''}`,
+              text: `${text} ${parsed.note || ''}`,
               data,
             });
             if (auto.accountId) setSelectedAccount(auto.accountId);
@@ -276,24 +300,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       }
     } catch (e) {
       console.warn('AI Quick parse error, falling back to local rule engine:', e);
-    }
-
-    const guessedAmount = parseVietnameseMoneyText(quickInput);
-    if (guessedAmount > 0) {
-      setAmountStr(formatCurrencyInput(guessedAmount));
-    }
-    const guessedCat = guessCategoryByText(quickInput);
-    if (guessedCat) {
-      const isInc = allIncomeCategories.some(c => c.key === guessedCat);
-      setType(isInc ? 'in' : 'out');
-      setSelectedCat(guessedCat);
-    }
-    const cleanedNote = quickInput
-      .replace(/\d+\s*(k|tr|trieu|tỷ|d|đ|vnd|nghin)?/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (cleanedNote) {
-      setNote(cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1));
     }
 
     setIsParsingQuick(false);
@@ -307,7 +313,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     const cleanContact = counterparty.trim() || undefined;
     const cleanLocation = location.trim() || undefined;
 
-    addTransaction({
+    const newTx = {
       type,
       cat: selectedCat,
       amount: currentAmountNum,
@@ -319,7 +325,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       counterparty: cleanContact,
       location: cleanLocation,
       excludeFromReport: excludeFromReport || undefined,
+    };
+    // Tính cảnh báo dựa trên dữ liệu TRƯỚC khi lưu
+    const notices = evaluateSpendNotices({
+      tx: newTx,
+      data,
+      plus,
+      categoryMap,
+      todayStr: getTodayDateString(),
     });
+    addTransaction(newTx);
+    notices.forEach(n => showToast(n.tone, n.title, n.message));
 
     // Save newly typed trip or contact into settings for 1-tap reuse
     const curTrips = data.settings.savedTrips || [];
@@ -422,22 +438,31 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">
               <span className="flex items-center gap-1">
                 <Sparkles size={13} className="text-emerald-600 dark:text-emerald-400" />
-                <span>Gõ hoặc nói nhanh tự động điền</span>
+                <span>Nhập nhanh thông minh</span>
               </span>
-              <span className="text-[11px] text-slate-400">VD: cơm trưa 45k momo</span>
+              <span className="text-[11px] text-slate-400">Dán tin nhắn trừ tiền cũng được</span>
             </div>
             <div className="flex gap-1.5">
               <input
                 type="text"
                 value={quickInput}
                 onChange={e => setQuickInput(e.target.value)}
+                onPaste={e => {
+                  const pasted = e.clipboardData.getData('text');
+                  if (pasted && pasted.trim().length > 8) {
+                    e.preventDefault();
+                    const combined = (quickInput ? quickInput + ' ' : '') + pasted.trim();
+                    setQuickInput(combined);
+                    handleQuickParse(combined);
+                  }
+                }}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleQuickParse();
                   }
                 }}
-                placeholder="Nhập: ăn sáng 35k, xăng 60k..."
+                placeholder="VD: sữa chua cho con 85k thẻ VIB, hoặc dán SMS ngân hàng"
                 className="flex-1 min-h-[40px] text-xs sm:text-sm bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
               {onOpenVoice && (
@@ -455,7 +480,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               )}
               <button
                 type="button"
-                onClick={handleQuickParse}
+                onClick={() => handleQuickParse()}
                 disabled={isParsingQuick || !quickInput.trim()}
                 className="min-h-[40px] px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
               >

@@ -20,8 +20,12 @@ import {
   Edit3,
   Trash2,
   Star,
+  Gift,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { usePlus } from '../../context/PlusContext';
+import { CashbackModal } from '../modals/CashbackModal';
+import { SinkingFundsSection } from '../assets/SinkingFundsSection';
 import { useFinance } from '../../context/FinanceContext';
 import {
   calculateDepositAccrued,
@@ -35,7 +39,7 @@ import { EditAssetModal, EditableAssetType } from '../modals/EditAssetModal';
 import { DepositActionModal } from '../modals/DepositActionModal';
 import { AccountDetailTarget, AccountDetailView } from '../modals/AccountDetailView';
 import { SavingsDeposit } from '../../types/finance';
-import { getCardStatementSummary } from '../../utils/creditCardStatement';
+import { getCardCycleSpending, getCardStatementSummary } from '../../utils/creditCardStatement';
 
 interface AssetsViewProps {
   onOpenAddAsset: (type: AssetCategoryType) => void;
@@ -83,6 +87,8 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
   } = useFinance();
 
   const [activeSubTab, setActiveSubTab] = useState<AssetCategoryType>(initialSubTab || 'card');
+  const { plus } = usePlus();
+  const [cashbackCardId, setCashbackCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialSubTab) {
@@ -234,7 +240,7 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
           { key: 'deposit' as AssetCategoryType, label: 'Sổ tiết kiệm', count: data.deps.filter(d => !d.closed).length, icon: PiggyBank },
           { key: 'holding' as AssetCategoryType, label: 'Đầu tư & Vàng', count: data.holds.length, icon: TrendingUp },
           { key: 'debt' as AssetCategoryType, label: 'Vay & Nợ', count: data.debts.filter(d => !d.closed).length, icon: HandCoins },
-          { key: 'goal' as AssetCategoryType, label: 'Mục tiêu', count: data.goals.length, icon: Target },
+          { key: 'goal' as AssetCategoryType, label: 'Quỹ mục tiêu', count: data.goals.length, icon: Target },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.key;
@@ -691,7 +697,10 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
             .map(card => {
               const usagePct = card.limit > 0 ? Math.round((card.currentBalance / card.limit) * 100) : 0;
               const txCount = data.records.filter(r => r.accountId === card.id).length;
-              const stmt = getCardStatementSummary(card, data.records);
+              const stmt = getCardStatementSummary(card, data.records, undefined, plus.stmtOverrides);
+              const selfLimit = plus.cardSelfLimits[card.id] || 0;
+              const cycleSpend = getCardCycleSpending(card, data.records, plus.stmtOverrides);
+              const selfPct = selfLimit > 0 ? Math.round((cycleSpend / selfLimit) * 100) : 0;
               const isUrgentDue = !stmt.isPaidInFull && stmt.remainingDue > 0 && stmt.daysUntilDue <= 5;
 
               return (
@@ -822,6 +831,61 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
                     ) : null}
                   </div>
 
+                  {/* Hạn mức tự đặt (Self-Limit) cho kỳ sao kê đang chạy */}
+                  {selfLimit > 0 ? (
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-500">
+                          Hạn mức tự đặt kỳ này:{' '}
+                          <span className="money-mask font-semibold text-slate-700 dark:text-slate-200">
+                            {formatVND(cycleSpend)}
+                          </span>{' '}
+                          / <span className="money-mask">{formatVND(selfLimit)}</span>
+                        </span>
+                        <span
+                          className={`font-bold ${
+                            selfPct >= 100 ? 'text-rose-500' : selfPct >= 80 ? 'text-amber-500' : 'text-emerald-600'
+                          }`}
+                        >
+                          {selfPct}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            selfPct >= 100 ? 'bg-rose-500' : selfPct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, selfPct)}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] mt-1 text-slate-500">
+                        {cycleSpend <= selfLimit ? (
+                          <>
+                            Còn được quẹt:{' '}
+                            <strong className="money-mask text-emerald-600 dark:text-emerald-400">
+                              {formatVND(selfLimit - cycleSpend)}
+                            </strong>
+                          </>
+                        ) : (
+                          <strong className="money-mask text-rose-500">
+                            Vượt hạn mức tự đặt {formatVND(cycleSpend - selfLimit)}
+                          </strong>
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleEditAsset('card', card);
+                      }}
+                      className="w-full text-left text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
+                    >
+                      + Đặt ngân sách chi tiêu mục tiêu/tháng cho thẻ này
+                    </button>
+                  )}
+
                   {/* Limit usage */}
                   <div>
                     <div className="flex justify-between text-xs text-slate-500 mb-1">
@@ -865,6 +929,18 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
                       >
                         <Trash2 size={14} />
                         <span>Xóa</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setCashbackCardId(card.id);
+                        }}
+                        className="min-h-[36px] px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+                        title="Nhận hoàn tiền / Voucher"
+                      >
+                        <Gift size={14} />
+                        <span>Hoàn tiền</span>
                       </button>
                     </div>
                     <button
@@ -1011,113 +1087,13 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
         </div>
       )}
 
-      {/* F. SAVINGS GOALS */}
+      {/* F. QUỸ MỤC TIÊU (SINKING FUNDS) */}
       {activeSubTab === 'goal' && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Mục tiêu tiết kiệm ({data.goals.length})
-            </span>
-            <button
-              onClick={() => onOpenAddAsset('goal')}
-              className="min-h-[38px] px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white flex items-center gap-1.5 hover:bg-emerald-700 shadow-xs active:scale-95 transition-all cursor-pointer"
-            >
-              <Plus size={14} />
-              <span>Mục tiêu mới</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {data.goals.map(goal => {
-              const pct = goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0;
-              const isDone = pct >= 100;
-              return (
-                <div
-                  key={goal.id}
-                  className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center font-bold">
-                        <Target size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">{goal.title}</h4>
-                        <p className="text-xs text-slate-400">
-                          {goal.targetDate ? `Dự kiến: ${goal.targetDate}` : 'Không thời hạn'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {pct}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div>
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span className="money-mask font-semibold text-slate-900 dark:text-white">
-                        {formatVND(goal.currentAmount)}
-                      </span>
-                      <span>/ {formatVNDShort(goal.targetAmount)}</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
-                        style={{ width: `${Math.min(100, pct)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEditAsset('goal', goal)}
-                        className="min-h-[36px] px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Edit3 size={14} />
-                        <span>Sửa</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Bạn có chắc chắn muốn xóa mục tiêu "${goal.title}" không?`)) deleteGoal(goal.id);
-                        }}
-                        className="min-h-[36px] px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-50/80 dark:bg-rose-950/30 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Trash2 size={14} />
-                        <span>Xóa</span>
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const amtStr = prompt(`Góp thêm tiền vào "${goal.title}":`, '500000');
-                        if (amtStr) {
-                          const val = parseFloat(amtStr);
-                          if (val > 0) {
-                            contributeGoal(goal.id, val, data.accts[0]?.id);
-                            if (goal.currentAmount + val >= goal.targetAmount) {
-                              triggerCelebration();
-                            }
-                          }
-                        }
-                      }}
-                      className="min-h-[38px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold active:scale-95 transition-all cursor-pointer"
-                    >
-                      + Góp tiền
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <SinkingFundsSection
+          onAddGoal={() => onOpenAddAsset('goal')}
+          onEditGoal={goal => handleEditAsset('goal', goal)}
+          onCelebrate={triggerCelebration}
+        />
       )}
 
       {/* Edit Asset Modal */}
@@ -1138,6 +1114,8 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
         deposit={actionDeposit}
         mode={actionDepositMode}
       />
+
+      <CashbackModal isOpen={cashbackCardId !== null} cardId={cashbackCardId} onClose={() => setCashbackCardId(null)} />
 
       {/* Dedicated Account / Credit Card Transaction History View */}
       <AccountDetailView

@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import { usePlus } from '../context/PlusContext';
 import { useAuth } from '../context/AuthContext';
 import { calculateNetWorthBreakdown, formatVNDShort } from '../utils/formatters';
 
@@ -27,11 +28,42 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAccountSync,
 }) => {
   const { currentMonth, shiftMonth, data, togglePrivacyMask, syncStatus } = useFinance();
+  const { periodMode, setPeriodMode, periodRange } = usePlus();
   const { user } = useAuth();
   const netWorthData = calculateNetWorthBreakdown(data);
 
   const [yearStr, monthStr] = currentMonth.split('-');
-  const monthLabel = `Tháng ${Number(monthStr)}/${yearStr}`;
+  const monthLabel =
+    periodMode === 'payroll' ? `Kỳ lương T${Number(monthStr)}/${yearStr}` : `Tháng ${Number(monthStr)}/${yearStr}`;
+
+  const periodToggle = (
+    <div
+      className="flex items-center bg-white/80 dark:bg-slate-900/70 rounded-lg p-0.5 border border-slate-200/70 dark:border-slate-700/70 shrink-0"
+      role="group"
+      aria-label="Chọn kiểu chu kỳ"
+    >
+      {(
+        [
+          { k: 'calendar', label: 'Tháng' },
+          { k: 'payroll', label: 'Kỳ lương' },
+        ] as const
+      ).map(opt => (
+        <button
+          key={opt.k}
+          type="button"
+          onClick={() => setPeriodMode(opt.k)}
+          aria-pressed={periodMode === opt.k}
+          className={`min-h-[30px] px-2 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+            periodMode === opt.k
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors pt-[env(safe-area-inset-top,0px)]">
@@ -135,9 +167,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ChevronLeft size={19} />
             </button>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
-              <Calendar size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>{monthLabel}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="min-w-0 text-center leading-tight">
+                <div className="flex items-center justify-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-100">
+                  <Calendar size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="truncate">{monthLabel}</span>
+                </div>
+                <div className="text-[10px] font-semibold text-slate-400">{periodRange.rangeLabel}</div>
+              </div>
+              {periodToggle}
             </div>
             <button
               onClick={() => shiftMonth(1)}
@@ -181,9 +219,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ChevronLeft size={19} />
             </button>
-            <div className="px-3 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 min-w-[7.5rem] justify-center">
-              <Calendar size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>{monthLabel}</span>
+            <div className="px-2 flex items-center gap-2">
+              <div className="text-center leading-tight min-w-[7.5rem]">
+                <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 justify-center">
+                  <Calendar size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>{monthLabel}</span>
+                </div>
+                <div className="text-[10px] font-semibold text-slate-400">{periodRange.rangeLabel}</div>
+              </div>
+              {periodToggle}
             </div>
             <button
               onClick={() => shiftMonth(1)}

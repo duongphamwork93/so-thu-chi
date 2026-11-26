@@ -17,7 +17,11 @@ import {
   HandCoins,
   BarChart3,
   BookOpen,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
+import { usePlus } from '../../context/PlusContext';
+import { JarBudgetCard } from '../overview/JarBudgetCard';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORY_MAP } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
@@ -55,6 +59,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   initialSection = 'overview',
 }) => {
   const { data, currentMonth, recordRecurringNow, categoryMap } = useFinance();
+  const { isInPeriod, getRangeForMonth, periodRange, plus } = usePlus();
   const [viewSection, setViewSection] = useState<'overview' | 'report'>(initialSection);
   const [reportModeIntent, setReportModeIntent] = useState<ReportMode>('member');
   const [reportTypeIntent, setReportTypeIntent] = useState<'out' | 'in'>('out');
@@ -69,8 +74,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     setSelectedCalendarDate(null);
   }, [currentMonth]);
 
-  // All transactions in currentMonth for ledger display
+  // All transactions in the selected period (calendar month or payroll cycle)
   const monthTransactions = useMemo(
+    () => data.records.filter(r => isInPeriod(r.date)),
+    [data.records, isInPeriod]
+  );
+
+  // Calendar heatmap always follows calendar days of the selected month
+  const calendarMonthTransactions = useMemo(
     () => data.records.filter(r => r.date && r.date.startsWith(currentMonth)),
     [data.records, currentMonth]
   );
@@ -92,8 +103,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const fiveMonthStats = useMemo(() => {
     const months = [-4, -3, -2, -1, 0].map(offset => shiftMonthString(currentMonth, offset));
     const items = months.map(m => {
+      const range = getRangeForMonth(m);
       const mRecords = data.records.filter(
-        r => r.date && r.date.startsWith(m) && !r.excludeFromReport
+        r => r.date && r.date >= range.start && r.date <= range.end && !r.excludeFromReport
       );
       const inc = mRecords.filter(r => r.type === 'in').reduce((s, r) => s + r.amount, 0);
       const exp = mRecords.filter(r => r.type === 'out').reduce((s, r) => s + r.amount, 0);
@@ -111,7 +123,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     const expChangePct =
       prevExp > 0 ? Math.round(((curExp - prevExp) / prevExp) * 100) : null;
     return { items, maxVal, expChangePct };
-  }, [data.records, currentMonth]);
+  }, [data.records, currentMonth, getRangeForMonth]);
 
   // Monthly Calendar Matrix (Monday - Sunday)
   const calendarGrid = useMemo(() => {
@@ -120,7 +132,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     const firstWeekday = (new Date(y, m - 1, 1).getDay() + 6) % 7; // 0 = T2, 6 = CN
 
     const byDate: Record<string, { inSum: number; outSum: number; txs: Transaction[] }> = {};
-    monthTransactions.forEach(tx => {
+    calendarMonthTransactions.forEach(tx => {
       if (!byDate[tx.date]) {
         byDate[tx.date] = { inSum: 0, outSum: 0, txs: [] };
       }
@@ -156,10 +168,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     }
 
     return { cells, byDate };
-  }, [currentMonth, monthTransactions]);
+  }, [currentMonth, calendarMonthTransactions]);
 
   // Total balance & net worth breakdown
-  const totalLiquidCash = data.accts.reduce((sum, a) => sum + a.balance, 0);
+  const paymentAccounts = data.accts.filter(a => a.type !== 'invest');
+  const totalLiquidCash = paymentAccounts.reduce((sum, a) => sum + a.balance, 0);
+  // Tiền đang "giữ chỗ" để trả thẻ: mỗi lần quẹt thẻ, dư nợ thẻ tăng → tiền mặt thực giảm tương ứng
+  const heldForCards = data.cards.reduce((sum, c) => sum + Math.max(0, c.currentBalance || 0), 0);
+  const realSpendableCash = totalLiquidCash - heldForCards;
   const netWorthData = calculateNetWorthBreakdown(data);
   const totalAssetsPlus = netWorthData.totalGrossAssets + netWorthData.receivables;
   const totalDebtMinus = netWorthData.totalLiabilities;
@@ -171,11 +187,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const now = new Date();
   const [currentY, currentM] = currentMonth.split('-').map(Number);
-  const isCurrentMonthActive = now.getFullYear() === currentY && now.getMonth() + 1 === currentM;
-  const daysInMonth = new Date(currentY, currentM, 0).getDate();
-  const currentDay = isCurrentMonthActive ? now.getDate() : daysInMonth;
-  const daysRemainingInMonth = Math.max(0, daysInMonth - currentDay);
   const todayStr = getTodayDateString();
+  const daysRemainingInMonth =
+    todayStr > periodRange.end
+      ? 0
+      : todayStr < periodRange.start
+      ? periodRange.totalDays
+      : Math.max(0, Math.round((Date.parse(periodRange.end) - Date.parse(todayStr)) / 86_400_000));
 
   // Smart due reminders
   const dueItems: Array<{
@@ -191,7 +209,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const todayDay = now.getDate();
   data.cards.forEach(card => {
-    const stmt = getCardStatementSummary(card, data.records, todayStr);
+    const stmt = getCardStatementSummary(card, data.records, todayStr, plus.stmtOverrides);
     if (stmt.remainingDue > 0 && stmt.daysUntilDue <= 7) {
       dueItems.push({
         id: card.id,
@@ -322,17 +340,45 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-              <div className="money-mask">
-                <div className="text-3xl sm:text-4xl font-black text-cyan-600 dark:text-cyan-400 tracking-tight tabular-nums">
-                  {formatVND(totalLiquidCash)}
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Tiền mặt thực được tiêu
+              </p>
+              <div
+                className={`money-mask text-3xl sm:text-4xl font-black tracking-tight tabular-nums ${
+                  realSpendableCash >= 0 ? 'text-cyan-600 dark:text-cyan-400' : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {formatVND(realSpendableCash)}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                = Tiền trong {paymentAccounts.length} ví/tài khoản ({formatVNDShort(totalLiquidCash)}) − Dư nợ thẻ tín dụng
+              </p>
+              {realSpendableCash < 0 && (
+                <div className="mt-2 px-3 py-2 rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-start gap-1.5">
+                  <AlertTriangle size={15} className="shrink-0 mt-px" />
+                  <span>Nợ thẻ đang vượt tiền mặt hiện có — Hạn chế quẹt thêm thẻ</span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Số dư khả dụng trên {data.accts.length} tài khoản · Tài sản ròng:{' '}
-                  <strong className="text-slate-700 dark:text-slate-200">
-                    {formatVNDShort(netWorthData.netWorth)}
-                  </strong>
-                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <Lock size={11} />
+                  Đang giữ chờ trả thẻ
+                </span>
+                <span className="money-mask font-extrabold text-sm text-amber-700 dark:text-amber-400 tabular-nums">
+                  {formatVND(heldForCards)}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/50">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block">
+                  Tổng tài sản ròng
+                </span>
+                <span className="money-mask font-extrabold text-sm text-slate-800 dark:text-slate-100 tabular-nums">
+                  {formatVND(netWorthData.netWorth)}
+                </span>
               </div>
             </div>
 
@@ -388,13 +434,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           </div>
 
+          {/* 1b. NGÂN SÁCH 6 HŨ (Trần cố định) + CHIA TIỀN LƯƠNG */}
+          <JarBudgetCard onOpenJarReport={() => openSpecificReport('sixjars', 'out')} />
+
           {/* 2. CARD 2: TÌNH HÌNH THU CHI THÁNG NÀY + SO SÁNH 5 THÁNG */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BarChart3 size={16} className="text-emerald-600 dark:text-emerald-400" />
                 <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Tình Hình Thu Chi Tháng Này
+                  Thu Chi {plus.periodMode === 'payroll' ? 'Kỳ Lương Này' : 'Tháng Này'}
                 </h3>
               </div>
               <button
@@ -884,7 +933,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                    Chưa có ghi chép nào trong tháng này
+                    Chưa có ghi chép nào trong {plus.periodMode === 'payroll' ? 'kỳ lương này' : 'tháng này'}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Chạm nút (+) hoặc nút Ghi bằng giọng nói để thêm giao dịch ngay

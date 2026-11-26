@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, ArrowRightLeft, Check, CreditCard as CardIcon, Calendar, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 import { formatVND } from '../../utils/formatters';
 import { formatCurrencyInput, parseCurrencyInput } from '../../utils/numberFormatters';
 import { getCardStatementSummary } from '../../utils/creditCardStatement';
@@ -15,6 +16,7 @@ interface TransferModalProps {
 
 export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, initialToId }) => {
   const { data, transferMoney, payCreditCard } = useFinance();
+  const { plus } = usePlus();
 
   const [fromId, setFromId] = useState<string>(data.accts[0]?.id || '');
   const [toId, setToId] = useState<string>(initialToId || data.accts[1]?.id || data.cards[0]?.id || '');
@@ -24,15 +26,15 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, i
   const cardSummaries = useMemo(() => {
     const map = new Map<string, ReturnType<typeof getCardStatementSummary>>();
     data.cards.forEach(card => {
-      map.set(card.id, getCardStatementSummary(card, data.records));
+      map.set(card.id, getCardStatementSummary(card, data.records, undefined, plus.stmtOverrides));
     });
     return map;
-  }, [data.cards, data.records]);
+  }, [data.cards, data.records, plus.stmtOverrides]);
 
   const applyCardAutoFill = (targetCardId: string) => {
     const card = data.cards.find(c => c.id === targetCardId);
     if (!card) return;
-    const summary = cardSummaries.get(card.id) || getCardStatementSummary(card, data.records);
+    const summary = cardSummaries.get(card.id) || getCardStatementSummary(card, data.records, undefined, plus.stmtOverrides);
     const autoAmt = summary.recommendedPaymentAmount;
     setAmountStr(autoAmt > 0 ? formatCurrencyInput(autoAmt) : '');
     setNote(
@@ -70,7 +72,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, i
 
   const selectedCard = data.cards.find(c => c.id === toId) || null;
   const selectedCardSummary = selectedCard
-    ? cardSummaries.get(selectedCard.id) || getCardStatementSummary(selectedCard, data.records)
+    ? cardSummaries.get(selectedCard.id) || getCardStatementSummary(selectedCard, data.records, undefined, plus.stmtOverrides)
     : null;
   const isCardPayment = Boolean(selectedCard);
   const currentAmountNum = parseCurrencyInput(amountStr);
@@ -194,7 +196,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, i
                 {data.cards.length > 0 && (
                   <optgroup label="Thẻ tín dụng (Tự điền tiền sao kê)">
                     {data.cards.map(card => {
-                      const s = cardSummaries.get(card.id) || getCardStatementSummary(card, data.records);
+                      const s = cardSummaries.get(card.id) || getCardStatementSummary(card, data.records, undefined, plus.stmtOverrides);
                       const labelDetail =
                         s.remainingDue > 0
                           ? `Sao kê cần trả: ${formatVND(s.remainingDue)}`

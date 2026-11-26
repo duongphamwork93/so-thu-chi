@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatVND, parseVietnameseMoneyText } from '../../utils/formatters';
 import { getPaymentTargetLabel } from '../../utils/paymentMatcher';
@@ -58,6 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     syncStatus,
     forceUploadAllToCloud,
   } = useFinance();
+  const { exportFullBackup, importFullBackup } = usePlus();
   const { user, signInWithGoogle, signOutUser, authLoading } = useAuth();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -279,7 +281,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const reader = new FileReader();
     reader.onload = ev => {
       const text = ev.target?.result as string;
-      const success = importBackupJSON(text);
+      const success = importFullBackup(text);
       if (success) {
         setActionNotice('Đã khôi phục dữ liệu từ file sao lưu thành công!');
         confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
@@ -1176,7 +1178,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
-            onClick={exportBackupJSON}
+            onClick={exportFullBackup}
             className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 flex items-center gap-3 transition-colors text-left"
           >
             <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">

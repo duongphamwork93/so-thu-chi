@@ -735,6 +735,25 @@ service cloud.firestore {
           && existing().ownerId == request.auth.uid
           && isValidUserDoc(userId);
       }
+
+      // 13. Sổ Plus (Chia lương, Hạn mức thẻ tự đặt, Quỹ mục tiêu liên kết, Kỳ lương)
+      // Một tài liệu duy nhất "main", nội dung là chuỗi JSON đã chuẩn hoá phía client.
+      match /plus/{plusId} {
+        allow get: if isValidId(userId) && plusId == 'main' && isOwner(userId)
+          && (resource == null || existing().ownerId == request.auth.uid);
+        allow list: if false;
+        allow create, update: if isValidId(userId) && plusId == 'main'
+          && isOwner(userId)
+          && hasValidParentUser(userId)
+          && incoming().keys().hasAll(['ownerId', 'payload', 'updatedAtMs'])
+          && incoming().keys().hasOnly(['ownerId', 'payload', 'updatedAtMs'])
+          && incoming().ownerId == request.auth.uid
+          && incoming().payload is string
+          && incoming().payload.size() <= 200000
+          && (incoming().updatedAtMs is int || incoming().updatedAtMs is float)
+          && (resource == null || existing().ownerId == request.auth.uid);
+        allow delete: if false;
+      }
     }
   }
 }

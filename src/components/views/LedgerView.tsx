@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatDateVietnamese, formatVND, getTodayDateString } from '../../utils/formatters';
 import { Transaction, TransactionType } from '../../types/finance';
@@ -33,6 +34,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
     allExpenseCategories,
     allIncomeCategories,
   } = useFinance();
+  const { isInPeriod } = usePlus();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'out' | 'in'>('all');
   const [selectedCat, setSelectedCat] = useState<string>('all');
@@ -51,7 +53,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
   const filteredRecords = useMemo(() => {
     return data.records.filter(r => {
       // Must match current month
-      if (!r.date || !r.date.startsWith(currentMonth)) return false;
+      if (!isInPeriod(r.date)) return false;
 
       // Filter by type
       if (typeFilter !== 'all' && r.type !== typeFilter) return false;
@@ -77,7 +79,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
 
       return true;
     });
-  }, [data.records, currentMonth, typeFilter, selectedCat, selectedAccount, searchQuery, categoryMap]);
+  }, [data.records, isInPeriod, typeFilter, selectedCat, selectedAccount, searchQuery, categoryMap]);
 
   // Aggregate totals for the filtered results
   const totalFilteredOut = filteredRecords
