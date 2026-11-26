@@ -38,7 +38,11 @@ import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   CATEGORY_MAP,
+  LEGACY_CATEGORIES,
+  MERGED_LEGACY_KEYS,
+  applyCategoryOverride,
 } from '../constants/categories';
+import type { CategoryOverride } from '../types/plus';
 import { getColorThemeOption } from '../constants/themes';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from './AuthContext';
@@ -258,6 +262,8 @@ interface FinanceContextType {
   categoryMap: Record<string, CategoryInfo>;
   addCustomCategory: (cat: Omit<CustomCategory, 'key'> & { key?: string }) => CustomCategory;
   deleteCustomCategory: (key: string) => void;
+  categoryOverrides: Record<string, CategoryOverride>;
+  setCategoryOverrides: (o: Record<string, CategoryOverride>) => void;
 }
 
 export interface PostedRecurring {
@@ -2451,51 +2457,55 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const customCategories = useMemo(() => data.customCategories || [], [data.customCategories]);
 
-  const allExpenseCategories = useMemo<CategoryInfo[]>(() => {
-    const customs: CategoryInfo[] = customCategories
-      .filter(c => c.type === 'out')
-      .map(c => ({
-        key: c.key,
-        name: c.name,
-        shortName: c.shortName || c.name,
-        color: c.color || '#EA580C',
-        group: c.group || 'need',
-        section: c.section || 'Tự tạo',
-        iconName: c.iconName || 'Utensils',
-      }));
-    return [...EXPENSE_CATEGORIES, ...customs];
-  }, [customCategories]);
+  // Chỉnh sửa danh mục (đổi tên/đổi hũ/ẩn) do PlusContext đẩy sang
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, CategoryOverride>>({});
 
-  const allIncomeCategories = useMemo<CategoryInfo[]>(() => {
-    const customs: CategoryInfo[] = customCategories
-      .filter(c => c.type === 'in')
-      .map(c => ({
-        key: c.key,
-        name: c.name,
-        shortName: c.shortName || c.name,
-        color: c.color || '#16A34A',
-        group: 'income',
-        section: c.section || 'Thu nhập',
-        iconName: c.iconName || 'Coins',
-      }));
-    return [...INCOME_CATEGORIES, ...customs];
-  }, [customCategories]);
+  const customToInfo = (c: CustomCategory): CategoryInfo => ({
+    key: c.key,
+    name: c.name,
+    shortName: c.shortName || c.name,
+    color: c.color || (c.type === 'in' ? '#16A34A' : '#EA580C'),
+    group: c.group || (c.type === 'in' ? 'income' : 'need'),
+    section: c.section || (c.type === 'in' ? 'Thu nhập' : 'Tự tạo'),
+    iconName: c.iconName || (c.type === 'in' ? 'Coins' : 'Utensils'),
+  });
 
+  /** Danh mục đang hiện trong danh sách chọn = mặc định + tự tạo + danh mục cũ được bật lại, trừ mục đã ẩn. */
+  const buildVisible = (base: CategoryInfo[], legacy: CategoryInfo[], customs: CategoryInfo[]) =>
+    [
+      ...base,
+      ...legacy.filter(c => categoryOverrides[c.key]?.hidden === false && !MERGED_LEGACY_KEYS.has(c.key)),
+      ...customs,
+    ]
+      .filter(c => !categoryOverrides[c.key]?.hidden)
+      .map(c => applyCategoryOverride(c, categoryOverrides[c.key]));
+
+  const allExpenseCategories = useMemo<CategoryInfo[]>(
+    () =>
+      buildVisible(
+        EXPENSE_CATEGORIES,
+        LEGACY_CATEGORIES,
+        customCategories.filter(c => c.type === 'out').map(customToInfo)
+      ),
+    [customCategories, categoryOverrides]
+  );
+
+  const allIncomeCategories = useMemo<CategoryInfo[]>(
+    () => buildVisible(INCOME_CATEGORIES, [], customCategories.filter(c => c.type === 'in').map(customToInfo)),
+    [customCategories, categoryOverrides]
+  );
+
+  // Bản đồ đầy đủ (kể cả danh mục đã ẩn) để giao dịch cũ luôn hiển thị đúng
   const categoryMap = useMemo<Record<string, CategoryInfo>>(() => {
-    const map: Record<string, CategoryInfo> = { ...CATEGORY_MAP };
+    const map: Record<string, CategoryInfo> = {};
+    Object.values(CATEGORY_MAP).forEach(c => {
+      map[c.key] = applyCategoryOverride(c, categoryOverrides[c.key]);
+    });
     customCategories.forEach(c => {
-      map[c.key] = {
-        key: c.key,
-        name: c.name,
-        shortName: c.shortName || c.name,
-        color: c.color || (c.type === 'in' ? '#16A34A' : '#EA580C'),
-        group: c.group || (c.type === 'in' ? 'income' : 'need'),
-        section: c.section || (c.type === 'in' ? 'Thu nhập' : 'Tự tạo'),
-        iconName: c.iconName || (c.type === 'in' ? 'Coins' : 'Utensils'),
-      };
+      map[c.key] = applyCategoryOverride(customToInfo(c), categoryOverrides[c.key]);
     });
     return map;
-  }, [customCategories]);
+  }, [customCategories, categoryOverrides]);
 
   return (
     <FinanceContext.Provider
@@ -2559,6 +2569,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         categoryMap,
         addCustomCategory,
         deleteCustomCategory,
+        categoryOverrides,
+        setCategoryOverrides,
       }}
     >
       {children}

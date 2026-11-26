@@ -53,6 +53,21 @@ export interface PlusData {
   dismissedAutoTx: Record<string, true>;
   /** Đã tạo 2 mẫu định kỳ (Claude Pro, YouTube Premium) hay chưa */
   recurringSeeded: boolean;
+  /** Đổi tên / đổi hũ / ẩn danh mục: key → chỉnh sửa */
+  categoryOverrides: Record<string, CategoryOverride>;
+}
+
+export type JarChoice = 'nec' | 'ffa' | 'educ' | 'play' | 'give' | 'lts' | 'none';
+
+/** Chỉnh sửa của người dùng lên một danh mục (có sẵn hoặc tự tạo). */
+export interface CategoryOverride {
+  name?: string;
+  shortName?: string;
+  section?: string;
+  color?: string;
+  iconName?: string;
+  jar?: JarChoice;
+  hidden?: boolean;
 }
 
 export const DEFAULT_MONTHLY_INCOME = 48_000_000;

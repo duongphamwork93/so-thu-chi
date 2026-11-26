@@ -26,7 +26,7 @@ import { formatVNDShort } from '../../utils/formatters';
 import { getColorThemeOption } from '../../constants/themes';
 
 interface MoreHubViewProps {
-  onNavigateSub: (sub: 'assets' | 'ai' | 'settings') => void;
+  onNavigateSub: (sub: 'assets' | 'ai' | 'settings' | 'categories') => void;
   onOpenAddModal: () => void;
   onOpenGitHubModal?: () => void;
   onOpenAccountSync?: () => void;
@@ -231,7 +231,7 @@ export const MoreHubView: React.FC<MoreHubViewProps> = ({
           {/* 4. Quản lý danh mục */}
           <button
             type="button"
-            onClick={() => onNavigateSub('settings')}
+            onClick={() => onNavigateSub('categories')}
             className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-amber-500/50 hover:shadow-md transition-all text-left flex flex-col justify-between h-32 active:scale-95 cursor-pointer group"
           >
             <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -243,7 +243,7 @@ export const MoreHubView: React.FC<MoreHubViewProps> = ({
                 <ChevronRight size={15} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
-                {customCategories.length > 0 ? `${customCategories.length} loại tự tạo` : 'Tạo loại giao dịch riêng'}
+                Sửa tên, đổi hũ, thêm / ẩn danh mục
               </p>
             </div>
           </button>
