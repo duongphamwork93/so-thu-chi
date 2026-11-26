@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { usePlus } from '../../context/PlusContext';
+import { canonicalCategoryKey } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatDateVietnamese, formatVND, getTodayDateString } from '../../utils/formatters';
 import { Transaction, TransactionType } from '../../types/finance';
@@ -59,7 +60,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({ onOpenAddModal }) => {
       if (typeFilter !== 'all' && r.type !== typeFilter) return false;
 
       // Filter by category
-      if (selectedCat !== 'all' && r.cat !== selectedCat) return false;
+      if (selectedCat !== 'all' && canonicalCategoryKey(r.cat) !== selectedCat) return false;
 
       // Filter by account
       if (selectedAccount !== 'all' && r.accountId !== selectedAccount) return false;

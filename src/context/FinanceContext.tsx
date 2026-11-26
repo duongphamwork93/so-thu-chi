@@ -1751,7 +1751,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? {
             id: 'tx_adj_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
             type: diff > 0 ? 'out' : 'in',
-            cat: diff > 0 ? 'phi_chuyen_khoan' : 'thu_khac',
+            cat: diff > 0 ? 'phi_chuyen_khoan' : 'hoan_tien',
             amount: Math.abs(diff),
             date: todayStr,
             note:
@@ -1825,7 +1825,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? {
             id: 'tx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             type: 'out',
-            cat: 'tra_no',
+            cat: 'cho_vay',
             amount: debt.amount,
             date: getTodayDateString(),
             note: `Cho vay: ${debt.targetName} (${debt.name})`,

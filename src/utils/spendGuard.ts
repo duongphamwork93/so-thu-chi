@@ -32,7 +32,7 @@ export function evaluateSpendNotices(params: {
   // 1) Hũ chi tiêu biến đổi
   if (!tx.excludeFromReport) {
     const jarKey = classifyJar(tx, categoryMap);
-    if (VARIABLE_JARS.includes(jarKey)) {
+    if (jarKey && VARIABLE_JARS.includes(jarKey)) {
       const month = getPeriodMonthForDate(tx.date, plus.periodMode, plus.payrollStartDay);
       const range = getPeriodRange(month, plus.periodMode, plus.payrollStartDay);
       const status = computeJarStatuses({

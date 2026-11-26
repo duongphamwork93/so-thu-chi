@@ -22,7 +22,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { guessCategoryByText, removeVietnameseAccents } from '../../constants/categories';
+import { canonicalCategoryKey, guessCategoryByText, removeVietnameseAccents } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatVND, getTodayDateString, parseVietnameseMoneyText } from '../../utils/formatters';
 import { formatCurrencyInput, parseCurrencyInput } from '../../utils/numberFormatters';
@@ -267,7 +267,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             setAmountStr(formatCurrencyInput(parsed.amount));
           }
           if (parsed.category) {
-            setSelectedCat(parsed.category);
+            setSelectedCat(canonicalCategoryKey(parsed.category));
             setSelectedSection('all');
             setCatSearch('');
           }

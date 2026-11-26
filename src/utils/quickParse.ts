@@ -127,7 +127,7 @@ function parseSmsDate(text: string): string | undefined {
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-const INCOME_HINT = /\b(nhan|luong|thuong|hoan tien|cashback|duoc cho|li xi|thu no|ban hang|tien vao|\+)\b/;
+const INCOME_HINT = /\b(nhan (tien|luong|thuong|chuyen khoan|ck|lai)|tien ve|luong|thuong|hoan tien|cashback|duoc cho|li xi|thu no|ban hang|tien vao)\b/;
 
 /**
  * Bộ đọc nhanh chạy ngay trên máy (không cần mạng):
@@ -160,7 +160,7 @@ export function parseQuickText(raw: string, data: StorageData): QuickParseResult
     if (/\b(sua chua|sua|banh|keo|an dam|vitamin)\b/.test(nn)) catGuess = forKid ? 'con_sua_bim' : 'an_uong';
     else if (forKid) catGuess = 'con_do_dung';
   }
-  const incomeKeys = new Set(['luong', 'thuong', 'lai_tiet_kiem', 'loi_dau_tu', 'duoc_tang', 'thu_no', 'thu_phu']);
+  const incomeKeys = new Set(['luong', 'thuong', 'lai_tiet_kiem', 'loi_dau_tu', 'duoc_tang', 'thu_no', 'thu_phu', 'hoan_tien']);
   let cat = catGuess;
   if (type === 'in' && !incomeKeys.has(catGuess)) cat = 'thu_khac';
   if (type === 'out' && incomeKeys.has(catGuess)) type = 'in';

@@ -114,7 +114,7 @@ export default async function handler(req: any, res: any) {
     const catListText =
       Array.isArray(categories) && categories.length > 0
         ? categories.map((c: any) => `${c.key} (${c.name} - ${c.type === 'in' ? 'Thu' : 'Chi'})`).join(', ')
-        : 'an_uong (Ăn uống), cho_sieu_thi (Chợ siêu thị), di_lai (Đi lại xăng xe), nha_o (Nhà ở điện nước), con_sua_bim (Sữa bỉm), giao_duc (Học phí), con_do_dung (Đồ dùng bé), con_y_te (Y tế bé), suc_khoe (Sức khỏe), cafe (Cà phê), mua_sam (Mua sắm), giai_tri (Giải trí du lịch), hieu_hi (Hiếu hỉ quà tặng), tiet_kiem (Tiết kiệm), tra_no (Trả nợ), khac (Khác), luong (Lương), thuong (Thưởng), thu_phu (Làm thêm), loi_dau_tu (Lãi đầu tư), duoc_tang (Được tặng lì xì), thu_khac (Thu khác)';
+        : 'an_uong (Ăn uống), cho_sieu_thi (Chợ siêu thị), di_lai (Đi lại xăng xe), dien (Tiền điện), nuoc (Tiền nước), do_sinh_hoat (Đồ dùng sinh hoạt), con_hoc_can_thiep (Học can thiệp), con_quan_ao (Quần áo bé), mua_vang (Mua vàng), dau_tu (Đầu tư), con_sua_bim (Sữa bỉm), giao_duc (Học phí), con_do_dung (Đồ dùng bé), con_y_te (Y tế bé), suc_khoe (Sức khỏe), cafe (Cà phê), mua_sam (Mua sắm), giai_tri (Giải trí du lịch), hieu_hi (Hiếu hỉ quà tặng), tiet_kiem (Tiết kiệm), tra_no (Trả nợ), khac (Khác), luong (Lương), thuong (Thưởng), thu_phu (Làm thêm), loi_dau_tu (Lãi đầu tư), duoc_tang (Được tặng lì xì), thu_khac (Thu khác)';
 
     const tripContext =
       Array.isArray(savedTrips) && savedTrips.length > 0

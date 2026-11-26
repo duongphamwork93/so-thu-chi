@@ -24,6 +24,7 @@ import { JarTargets, Transaction } from '../../types/finance';
 import { getBeneficiaries } from '../../constants/beneficiaries';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
 import { classifyJar } from '../../utils/jars';
+import { canonicalCategoryKey } from '../../constants/categories';
 
 export type ReportMode = 'member' | 'category' | 'rule503020' | 'sixjars';
 
@@ -304,11 +305,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const categoryStats = useMemo(() => {
     const map: Record<string, { amount: number; transactions: Transaction[] }> = {};
     activeTransactions.forEach(tx => {
-      if (!map[tx.cat]) {
-        map[tx.cat] = { amount: 0, transactions: [] };
+      const key = canonicalCategoryKey(tx.cat);
+      if (!map[key]) {
+        map[key] = { amount: 0, transactions: [] };
       }
-      map[tx.cat].amount += tx.amount;
-      map[tx.cat].transactions.push(tx);
+      map[key].amount += tx.amount;
+      map[key].transactions.push(tx);
     });
 
     const entries = Object.entries(map).map(([catKey, entry]) => {
@@ -387,7 +389,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     };
 
     expenseTransactions.forEach(tx => {
-      const targetJar: keyof JarTargets = classifyJar(tx, categoryMap);
+      const targetJar = classifyJar(tx, categoryMap);
+      if (!targetJar) return; // Cho vay / tạm ứng: trung tính, không thuộc hũ nào
       sums[targetJar] += tx.amount;
       lists[targetJar].push(tx);
     });
@@ -399,7 +402,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       });
       const catSumMap: Record<string, number> = {};
       sorted.forEach(tx => {
-        catSumMap[tx.cat] = (catSumMap[tx.cat] || 0) + tx.amount;
+        const ck = canonicalCategoryKey(tx.cat);
+        catSumMap[ck] = (catSumMap[ck] || 0) + tx.amount;
       });
       const categoryBreakdown = Object.entries(catSumMap)
         .map(([catKey, amount]) => ({
