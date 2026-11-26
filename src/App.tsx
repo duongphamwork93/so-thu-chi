@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { PlusProvider } from './context/PlusContext';
 import { ToastHost } from './components/ToastHost';
+import { RecurringEngine } from './components/RecurringEngine';
+import { RecurringManagerModal } from './components/modals/RecurringManagerModal';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { OverviewView } from './components/views/OverviewView';
@@ -32,6 +34,7 @@ const MainApp: React.FC = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [transferInitialToId, setTransferInitialToId] = useState<string | undefined>(undefined);
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  const [isRecurringOpen, setIsRecurringOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [assetModalCategory, setAssetModalCategory] = useState<AssetCategoryType | null>(null);
 
@@ -124,11 +127,12 @@ const MainApp: React.FC = () => {
               setAssetsInitialSubTab('debt');
               setActiveTab('assets');
             }}
+            onOpenRecurring={() => setIsRecurringOpen(true)}
             initialSection="overview"
           />
         )}
         {activeTab === 'ledger' && (
-          <LedgerView onOpenAddModal={handleOpenAddDefault} />
+          <LedgerView onOpenAddModal={handleOpenAddDefault} onOpenRecurring={() => setIsRecurringOpen(true)} />
         )}
         {activeTab === 'report' && (
           <OverviewView
@@ -144,6 +148,7 @@ const MainApp: React.FC = () => {
               setAssetsInitialSubTab('debt');
               setActiveTab('assets');
             }}
+            onOpenRecurring={() => setIsRecurringOpen(true)}
             initialSection="report"
           />
         )}
@@ -153,6 +158,7 @@ const MainApp: React.FC = () => {
             onOpenAddModal={handleOpenAddDefault}
             onOpenGitHubModal={() => setIsGitHubModalOpen(true)}
             onOpenAccountSync={() => setIsAccountModalOpen(true)}
+            onOpenRecurring={() => setIsRecurringOpen(true)}
           />
         )}
         {activeTab === 'assets' && (
@@ -232,6 +238,8 @@ const MainApp: React.FC = () => {
         onClose={() => setIsGitHubModalOpen(false)}
       />
 
+      <RecurringManagerModal isOpen={isRecurringOpen} onClose={() => setIsRecurringOpen(false)} />
+
       <AccountSyncModal
         isOpen={isAccountModalOpen}
         onClose={() => setIsAccountModalOpen(false)}
@@ -246,6 +254,7 @@ export default function App() {
       <FinanceProvider>
         <PlusProvider>
           <MainApp />
+          <RecurringEngine />
           <ToastHost />
         </PlusProvider>
       </FinanceProvider>

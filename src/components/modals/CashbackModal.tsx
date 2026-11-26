@@ -43,7 +43,7 @@ export const CashbackModal: React.FC<CashbackModalProps> = ({ isOpen, onClose, c
     if (mode === 'card') {
       addTransaction({
         type: 'in',
-        cat: 'thu_khac',
+        cat: 'hoan_tien',
         amount,
         date: getTodayDateString(),
         note: fullNote,
@@ -54,7 +54,7 @@ export const CashbackModal: React.FC<CashbackModalProps> = ({ isOpen, onClose, c
     } else {
       const tx = addTransaction({
         type: 'in',
-        cat: 'thu_khac',
+        cat: 'hoan_tien',
         amount,
         date: getTodayDateString(),
         note: `${fullNote} → hũ NEC`,

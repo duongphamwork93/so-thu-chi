@@ -7,14 +7,16 @@ export interface CategoryInfo {
   section: string;
   isKid?: boolean;
   iconName: string;
+  /**
+   * Hũ cố định cho hạng mục (ưu tiên hơn quy tắc tự đoán).
+   * 'none' = giao dịch trung tính (VD: Cho vay/tạm ứng) — không tính vào 6 hũ.
+   */
+  jar?: 'nec' | 'ffa' | 'educ' | 'play' | 'give' | 'lts' | 'none';
 }
 
 export const EXPENSE_CATEGORIES: CategoryInfo[] = [
   // 1. Ăn uống
-  { key: 'an_uong', name: 'Ăn uống', shortName: 'Ăn uống', color: '#EA580C', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
-  { key: 'an_sang', name: 'Ăn sáng', shortName: 'Ăn sáng', color: '#F97316', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
-  { key: 'an_trua', name: 'Ăn trưa', shortName: 'Ăn trưa', color: '#FB923C', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
-  { key: 'an_toi', name: 'Ăn tối', shortName: 'Ăn tối', color: '#C2410C', group: 'need', section: 'Ăn uống', iconName: 'Pizza' },
+  { key: 'an_uong', name: 'Ăn uống hàng ngày', shortName: 'Ăn uống', color: '#EA580C', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
   { key: 'an_tiem', name: 'Ăn tiệm', shortName: 'Ăn tiệm', color: '#E11D48', group: 'want', section: 'Ăn uống', iconName: 'Pizza' },
   { key: 'cafe', name: 'Cafe, trà sữa', shortName: 'Cafe', color: '#854D0E', group: 'want', section: 'Ăn uống', iconName: 'Coffee' },
   { key: 'cho_sieu_thi', name: 'Đi chợ / Siêu thị', shortName: 'Đi chợ/ST', color: '#D97706', group: 'need', section: 'Ăn uống', iconName: 'ShoppingCart' },
@@ -25,6 +27,8 @@ export const EXPENSE_CATEGORIES: CategoryInfo[] = [
   { key: 'con_sach_vo', name: 'Sách vở', shortName: 'Sách vở', color: '#0D9488', group: 'need', section: 'Con cái', isKid: true, iconName: 'BookOpen' },
   { key: 'con_do_dung', name: 'Đồ chơi, đồ dùng bé', shortName: 'Đồ chơi', color: '#F59E0B', group: 'want', section: 'Con cái', isKid: true, iconName: 'ToyBrick' },
   { key: 'con_y_te', name: 'Khám bệnh, tiêm chủng', shortName: 'Y tế bé', color: '#0891B2', group: 'need', section: 'Con cái', isKid: true, iconName: 'Stethoscope' },
+  { key: 'con_hoc_can_thiep', name: 'Học can thiệp', shortName: 'Học can thiệp', color: '#7C3AED', group: 'need', section: 'Con cái', isKid: true, iconName: 'HeartHandshake', jar: 'nec' },
+  { key: 'con_quan_ao', name: 'Quần áo, đồ dùng bé', shortName: 'Quần áo bé', color: '#DB2777', group: 'need', section: 'Con cái', isKid: true, iconName: 'Shirt', jar: 'nec' },
   { key: 'con_tieu_vat', name: 'Tiền tiêu vặt', shortName: 'Tiêu vặt', color: '#10B981', group: 'want', section: 'Con cái', isKid: true, iconName: 'Coins' },
 
   // 3. Đi lại
@@ -39,14 +43,12 @@ export const EXPENSE_CATEGORIES: CategoryInfo[] = [
   { key: 'dien', name: 'Điện', shortName: 'Điện', color: '#EAB308', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Zap' },
   { key: 'nuoc', name: 'Nước', shortName: 'Nước', color: '#0EA5E9', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Droplets' },
   { key: 'internet', name: 'Internet', shortName: 'Internet', color: '#4F46E5', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Wifi' },
-  { key: 'gas', name: 'Gas', shortName: 'Gas', color: '#EF4444', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Flame' },
   { key: 'dien_thoai_dd', name: 'Điện thoại di động', shortName: 'Di động', color: '#3B82F6', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Smartphone' },
-  { key: 'dien_thoai_cd', name: 'Điện thoại cố định', shortName: 'ĐT cố định', color: '#16A34A', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Phone' },
   { key: 'truyen_hinh', name: 'Truyền hình', shortName: 'Truyền hình', color: '#F59E0B', group: 'want', section: 'Dịch vụ sinh hoạt', iconName: 'Tv' },
   { key: 'thue_giup_viec', name: 'Thuê người giúp việc', shortName: 'Giúp việc', color: '#EA580C', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Home' },
 
   // 5. Nhà cửa
-  { key: 'nha_o', name: 'Thuê nhà / Nhà ở', shortName: 'Thuê nhà', color: '#4F46E5', group: 'need', section: 'Nhà cửa', iconName: 'Home' },
+  { key: 'do_sinh_hoat', name: 'Đồ dùng sinh hoạt', shortName: 'Đồ sinh hoạt', color: '#0D9488', group: 'need', section: 'Nhà cửa', iconName: 'Package', jar: 'nec' },
   { key: 'mua_sam_do_dac', name: 'Mua sắm đồ đạc', shortName: 'Đồ đạc', color: '#B45309', group: 'want', section: 'Nhà cửa', iconName: 'Sofa' },
   { key: 'sua_chua_nha', name: 'Sửa chữa nhà cửa', shortName: 'Sửa nhà', color: '#DC2626', group: 'need', section: 'Nhà cửa', iconName: 'Hammer' },
 
@@ -80,7 +82,9 @@ export const EXPENSE_CATEGORIES: CategoryInfo[] = [
   // 10. Ngân hàng & Tài chính khác
   { key: 'tra_no', name: 'Trả nợ, trả góp', shortName: 'Trả góp/Nợ', color: '#DC2626', group: 'need', section: 'Ngân hàng & Khác', iconName: 'CreditCard' },
   { key: 'phi_chuyen_khoan', name: 'Phí chuyển khoản', shortName: 'Phí CK', color: '#D97706', group: 'need', section: 'Ngân hàng & Khác', iconName: 'ArrowLeftRight' },
-  { key: 'cho_vay', name: 'Cho vay', shortName: 'Cho vay', color: '#059669', group: 'save', section: 'Ngân hàng & Khác', iconName: 'HandCoins' },
+  { key: 'cho_vay', name: 'Cho vay / Tạm ứng', shortName: 'Cho vay', color: '#059669', group: 'save', section: 'Ngân hàng & Khác', iconName: 'HandCoins', jar: 'none' },
+  { key: 'mua_vang', name: 'Mua vàng tích trữ', shortName: 'Mua vàng', color: '#CA8A04', group: 'save', section: 'Ngân hàng & Khác', iconName: 'Coins', jar: 'ffa' },
+  { key: 'dau_tu', name: 'Đầu tư / Chứng chỉ quỹ', shortName: 'Đầu tư', color: '#0F766E', group: 'save', section: 'Ngân hàng & Khác', iconName: 'TrendingUp', jar: 'ffa' },
   { key: 'tiet_kiem', name: 'Tiết kiệm, mua tài sản', shortName: 'Mua TS/TK', color: '#059669', group: 'save', section: 'Ngân hàng & Khác', iconName: 'PiggyBank' },
   { key: 'khac', name: 'Tiền ra / Chi khác', shortName: 'Chi khác', color: '#64748B', group: 'want', section: 'Ngân hàng & Khác', iconName: 'CircleEllipsis' },
 ];
@@ -96,12 +100,40 @@ export const INCOME_CATEGORIES: CategoryInfo[] = [
   { key: 'thu_no', name: 'Thu nợ', shortName: 'Thu nợ', color: '#0D9488', group: 'income', section: 'Thu nhập', iconName: 'HandCoins' },
   { key: 'quy_nhom', name: 'Quỹ nhóm', shortName: 'Quỹ nhóm', color: '#3B82F6', group: 'income', section: 'Thu nhập', iconName: 'Users' },
   { key: 'bhxh', name: 'Trợ cấp BHXH, thai sản', shortName: 'BHXH', color: '#0891B2', group: 'income', section: 'Thu nhập', iconName: 'ShieldCheck' },
+  { key: 'hoan_tien', name: 'Hoàn tiền / Cashback thẻ', shortName: 'Hoàn tiền', color: '#DB2777', group: 'income', section: 'Thu nhập', iconName: 'Gift' },
   { key: 'hoan_thue', name: 'Hoàn thuế TNCN', shortName: 'Hoàn thuế', color: '#4F46E5', group: 'income', section: 'Thu nhập', iconName: 'Receipt' },
   { key: 'thu_khac', name: 'Tiền vào / Thu khác', shortName: 'Tiền vào', color: '#64748B', group: 'income', section: 'Thu nhập', iconName: 'Coins' },
 ];
 
+/**
+ * Hạng mục cũ đã ẩn khỏi danh sách chọn khi ghi sổ, nhưng vẫn giữ để giao dịch đã ghi
+ * trước đây hiển thị đúng tên/biểu tượng.
+ */
+export const LEGACY_CATEGORIES: CategoryInfo[] = [
+  { key: 'an_sang', name: 'Ăn sáng', shortName: 'Ăn sáng', color: '#F97316', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
+  { key: 'an_trua', name: 'Ăn trưa', shortName: 'Ăn trưa', color: '#FB923C', group: 'need', section: 'Ăn uống', iconName: 'Utensils' },
+  { key: 'an_toi', name: 'Ăn tối', shortName: 'Ăn tối', color: '#C2410C', group: 'need', section: 'Ăn uống', iconName: 'Pizza' },
+  { key: 'gas', name: 'Gas', shortName: 'Gas', color: '#EF4444', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Flame' },
+  { key: 'dien_thoai_cd', name: 'Điện thoại cố định', shortName: 'ĐT cố định', color: '#16A34A', group: 'need', section: 'Dịch vụ sinh hoạt', iconName: 'Phone' },
+  { key: 'nha_o', name: 'Thuê nhà / Nhà ở', shortName: 'Thuê nhà', color: '#4F46E5', group: 'need', section: 'Nhà cửa', iconName: 'Home' },
+];
+
+/** Hạng mục cũ đã gộp vào hạng mục mới (dùng khi thống kê & lọc). */
+export const CATEGORY_ALIASES: Record<string, string> = {
+  an_sang: 'an_uong',
+  an_trua: 'an_uong',
+  an_toi: 'an_uong',
+};
+
+/** Khóa hạng mục chuẩn sau khi gộp (VD: an_sang → an_uong). */
+export function canonicalCategoryKey(key: string): string {
+  return CATEGORY_ALIASES[key] || key;
+}
+
 export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
-export const CATEGORY_MAP = Object.fromEntries(ALL_CATEGORIES.map(c => [c.key, c]));
+export const CATEGORY_MAP: Record<string, CategoryInfo> = Object.fromEntries(
+  [...LEGACY_CATEGORIES, ...ALL_CATEGORIES].map(c => [c.key, c])
+);
 
 // Vietnamese keyword rules for matching
 export const KEYWORD_RULES: [string, string[]][] = [
@@ -110,9 +142,13 @@ export const KEYWORD_RULES: [string, string[]][] = [
   ['con_sach_vo', ['sach vo', 'dung cu hoc tap', 'nha sach', 'fahasa']],
   ['giao_duc', ['hoc phi', 'mam non', 'tieu hoc', 'truong mam', 'anh ngu', 'hoc them', 'nang khieu']],
   ['cafe', ['highlands', 'phuc long', 'starbucks', 'the coffee house', 'coffee house', 'katinat', 'trung nguyen', 'cong caphe', 'cafe', 'ca phe', 'coffee', 'tra sua', 'gong cha', 'tocotoco', 'koi the', 'phe la', 'milk tea', 'tra dao']],
-  ['an_sang', ['an sang', 'banh mi', 'xoi ', 'chao long', 'pho sang']],
-  ['an_trua', ['an trua', 'com trua', 'bun cha trua']],
-  ['an_toi', ['an toi', 'com toi']],
+  ['an_uong', ['an sang', 'banh mi', 'xoi ', 'chao long', 'pho sang', 'an trua', 'com trua', 'bun cha trua', 'an toi', 'com toi']],
+  ['con_hoc_can_thiep', ['can thiep', 'hoc can thiep', 'tri lieu', 'ngon ngu tri lieu', 'hoat dong tri lieu']],
+  ['con_quan_ao', ['quan ao be', 'quan ao con', 'quan ao cho con', 'quan ao tre em', 'do cho be', 'do dung be']],
+  ['do_sinh_hoat', ['giay an', 'giay ve sinh', 'nuoc giat', 'bot giat', 'nuoc xa', 'tui rac', 'nuoc rua bat', 'nuoc lau san', 'do sinh hoat', 'do dung sinh hoat', 'ban chai', 'kem danh rang']],
+  ['mua_vang', ['mua vang', 'vang nhan', 'vang sjc', 'sjc', 'pnj', 'doji', 'bao tin minh chau']],
+  ['dau_tu', ['chung chi quy', 'ccq', 'dau tu', 'chung khoan', 'co phieu', 'mua quy', 'etf', 'dcds', 'vesaf']],
+  ['hoan_tien', ['hoan tien', 'cashback', 'cash back']],
   ['an_tiem', ['an tiem', 'an ngoai', 'nha hang', 'buffet', 'haidilao', 'gogi', 'manwah', 'lau ']],
   ['an_uong', ['grabfood', 'grab food', 'shopeefood', 'shopee food', 'baemin', 'befood', 'kfc', 'lotteria', 'jollibee', 'mcdonald', 'pizza', 'quan an', 'com tam', 'com ga', 'pho ', 'bun ']],
   ['xang_xe', ['petrolimex', 'xang dau', 'do xang', 'xang ', 'pvoil']],
@@ -127,9 +163,7 @@ export const KEYWORD_RULES: [string, string[]][] = [
   ['dien', ['evn', 'dien luc', 'tien dien']],
   ['nuoc', ['cap nuoc', 'tien nuoc']],
   ['internet', ['fpt telecom', 'vnpt', 'internet', 'wifi']],
-  ['gas', ['tien gas', 'binh gas', 'doi gas']],
   ['dien_thoai_dd', ['nap the', 'cuoc di dong', '4g', '5g', 'viettel', 'mobifone', 'vinaphone']],
-  ['nha_o', ['tien nha', 'phi quan ly', 'thue nha']],
   ['quan_ao', ['quan ao', 'uniqlo', 'zara', 'vay dam']],
   ['giay_dep', ['giay dep', 'bitis', 'nike', 'adidas']],
   ['my_pham', ['my pham', 'guardian', 'watsons', 'son ', 'kem chong nang']],
@@ -142,7 +176,8 @@ export const KEYWORD_RULES: [string, string[]][] = [
   ['hieu_hi', ['phung vieng', 'qua tang', 'sinh nhat', 'mung tho', 'phong bi', 'bieu tang']],
   ['phi_chuyen_khoan', ['phi chuyen khoan', 'phi ngan hang', 'phi duy tri']],
   ['tra_no', ['tra no', 'tra gop', 'fe credit', 'home credit', 'tra the', 'du no']],
-  ['tiet_kiem', ['gui tiet kiem', 'mua vang', 'tich luy', 'gui ngan hang']],
+  ['tiet_kiem', ['gui tiet kiem', 'tich luy', 'gui ngan hang']],
+  ['cho_vay', ['cho vay', 'cho muon', 'tam ung', 'ung truoc']],
   ['luong', ['luong', 'salary', 'nhan luong', 'cong ty chuyen khoan']],
   ['thuong', ['thuong', 'bonus', 'kpi', 'thuong tet', 'thuong le']],
   ['lai_tiet_kiem', ['lai tiet kiem']],

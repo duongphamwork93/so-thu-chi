@@ -1,4 +1,4 @@
-import { CategoryInfo } from '../constants/categories';
+import { CategoryInfo, canonicalCategoryKey } from '../constants/categories';
 import { JarTargets, Transaction } from '../types/finance';
 import { PeriodRange, elapsedDaysInPeriod } from './period';
 
@@ -27,12 +27,18 @@ export const JAR_ORDER: JarKey[] = ['nec', 'play', 'educ', 'give', 'ffa', 'lts']
 /** Hũ chi tiêu biến đổi: áp dụng cảnh báo vượt chi & chỉ báo tốc độ. */
 export const VARIABLE_JARS: JarKey[] = ['nec', 'play'];
 
-/** Phân loại một khoản chi vào hũ (cùng quy tắc với báo cáo 6 Hũ hiện có). */
+/**
+ * Phân loại một khoản chi vào hũ. Trả về null nếu là giao dịch trung tính
+ * (VD: Cho vay / Tạm ứng) — không tính vào 6 hũ.
+ */
 export function classifyJar(
   tx: Pick<Transaction, 'cat' | 'note'>,
   categoryMap: Record<string, CategoryInfo>
-): JarKey {
-  const cat = categoryMap[tx.cat];
+): JarKey | null {
+  const cat = categoryMap[tx.cat] || categoryMap[canonicalCategoryKey(tx.cat)];
+  // 1) Hũ gắn cố định theo hạng mục
+  if (cat?.jar) return cat.jar === 'none' ? null : cat.jar;
+
   const catNameLower = (cat?.name || '').toLowerCase();
   const noteLower = (tx.note || '').toLowerCase();
 
@@ -105,6 +111,7 @@ export function computeJarStatuses(params: {
     if (!isTxInRange(tx, range)) continue;
     if (tx.type === 'out' && !tx.excludeFromReport) {
       const jar = classifyJar(tx, categoryMap);
+      if (!jar) continue;
       spent[jar] += tx.amount;
       counts[jar] += 1;
     } else if (tx.type === 'in' && cashbackToNec && cashbackToNec[tx.id]) {

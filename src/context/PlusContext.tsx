@@ -24,6 +24,8 @@ export function getDefaultPlus(): PlusData {
     stmtOverrides: {},
     goalDepositLinks: {},
     cashbackToNec: {},
+    dismissedAutoTx: {},
+    recurringSeeded: false,
   };
 }
 
@@ -69,6 +71,8 @@ export function normalizePlus(raw: unknown): PlusData {
     stmtOverrides: isObj(raw.stmtOverrides) ? { ...raw.stmtOverrides } : {},
     goalDepositLinks: isObj(raw.goalDepositLinks) ? { ...raw.goalDepositLinks } : {},
     cashbackToNec: isObj(raw.cashbackToNec) ? { ...raw.cashbackToNec } : {},
+    dismissedAutoTx: isObj(raw.dismissedAutoTx) ? { ...raw.dismissedAutoTx } : {},
+    recurringSeeded: Boolean(raw.recurringSeeded),
   };
 }
 

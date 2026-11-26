@@ -236,6 +236,12 @@ interface FinanceContextType {
   updateRecurring: (id: string, updates: Partial<RecurringItem>) => void;
   deleteRecurring: (id: string) => void;
   recordRecurringNow: (recId: string) => void;
+  /**
+   * Ghi sổ các khoản định kỳ đến hạn trong tháng hiện tại (idempotent).
+   * - Không có recIds: tự động ghi mọi khoản đang bật, đã tới ngày trừ, tháng này chưa ghi.
+   * - Có recIds + force: ghi ngay các khoản đó cho tháng này (vẫn không bao giờ trùng).
+   */
+  postRecurring: (options?: { recIds?: string[]; force?: boolean; todayStr?: string }) => PostedRecurring[];
 
   // Settings & Utilities
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -252,6 +258,27 @@ interface FinanceContextType {
   categoryMap: Record<string, CategoryInfo>;
   addCustomCategory: (cat: Omit<CustomCategory, 'key'> & { key?: string }) => CustomCategory;
   deleteCustomCategory: (key: string) => void;
+}
+
+export interface PostedRecurring {
+  recId: string;
+  txId: string;
+  name: string;
+  amount: number;
+  sourceName: string;
+}
+
+/** Mã giao dịch cố định cho mỗi khoản định kỳ theo tháng → chống tạo trùng. */
+export function recurringTxId(recId: string, monthKey: string): string {
+  return sanitizeId(`tx_rec_${recId}_${monthKey.replace('-', '')}`);
+}
+
+/** Ngày trừ tiền thực tế trong tháng (ngày 31 → co về ngày cuối tháng ngắn). */
+export function recurringDueDate(dayOfMonth: number, monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const d = Math.min(Math.max(1, Math.round(dayOfMonth || 1)), last);
+  return `${monthKey}-${String(d).padStart(2, '0')}`;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -1751,7 +1778,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? {
             id: 'tx_adj_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
             type: diff > 0 ? 'out' : 'in',
-            cat: diff > 0 ? 'phi_chuyen_khoan' : 'thu_khac',
+            cat: diff > 0 ? 'phi_chuyen_khoan' : 'hoan_tien',
             amount: Math.abs(diff),
             date: todayStr,
             note:
@@ -1825,7 +1852,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? {
             id: 'tx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             type: 'out',
-            cat: 'tra_no',
+            cat: 'cho_vay',
             amount: debt.amount,
             date: getTodayDateString(),
             note: `Cho vay: ${debt.targetName} (${debt.name})`,
@@ -2141,20 +2168,116 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const recordRecurringNow = (recId: string) => {
-    const rec = dataRef.current.recs.find(r => r.id === recId);
-    if (!rec) return;
+  const postRecurring: FinanceContextType['postRecurring'] = (options = {}) => {
+    const todayStr = options.todayStr || getTodayDateString();
+    const monthKey = todayStr.slice(0, 7);
+    const snap = dataRef.current;
+    const existingIds = new Set(snap.records.map(r => r.id));
 
-    addTransaction({
-      type: rec.type,
-      cat: rec.cat,
-      amount: rec.amount,
-      date: getTodayDateString(),
-      note: `Khoản định kỳ: ${rec.name}`,
-      accountId: rec.accountId,
+    const due = snap.recs.filter(rec => {
+      if (rec.cycle && rec.cycle !== 'monthly') return false;
+      if (!(rec.amount > 0)) return false;
+      if (existingIds.has(recurringTxId(rec.id, monthKey))) return false; // đã có giao dịch tháng này
+      if (options.recIds) return options.recIds.includes(rec.id) && Boolean(options.force);
+      if (rec.autoRecord === false) return false; // đang tạm dừng
+      if ((rec.lastRecorded || '').slice(0, 7) >= monthKey) return false; // đã đánh dấu ghi tháng này
+      return recurringDueDate(rec.dayOfMonth, monthKey) <= todayStr;
+    });
+    if (due.length === 0) return [];
+
+    const now = Date.now();
+    const newTxs: Transaction[] = due.map((rec, i) => {
+      const dueDate = recurringDueDate(rec.dayOfMonth, monthKey);
+      return {
+        id: recurringTxId(rec.id, monthKey),
+        type: rec.type,
+        cat: rec.cat,
+        amount: rec.amount,
+        date: dueDate <= todayStr ? dueDate : todayStr,
+        note: rec.name,
+        accountId: rec.accountId,
+        createdAt: now + i,
+      };
     });
 
-    updateRecurring(recId, { lastRecorded: getTodayDateString() });
+    const accts = new Map(snap.accts.map(a => [a.id, { ...a }]));
+    const cards = new Map(snap.cards.map(c => [c.id, { ...c }]));
+    const touchedAcc = new Set<string>();
+    const touchedCard = new Set<string>();
+    newTxs.forEach(tx => {
+      if (!tx.accountId) return;
+      const a = accts.get(tx.accountId);
+      if (a) {
+        a.balance += tx.type === 'in' ? tx.amount : -tx.amount;
+        touchedAcc.add(a.id);
+        return;
+      }
+      const c = cards.get(tx.accountId);
+      if (c) {
+        c.currentBalance = Math.max(0, c.currentBalance + (tx.type === 'out' ? tx.amount : -tx.amount));
+        touchedCard.add(c.id);
+      }
+    });
+    const dueIds = new Set(due.map(r => r.id));
+
+    setData(prev => {
+      const prevIds = new Set(prev.records.map(r => r.id));
+      const fresh = newTxs.filter(t => !prevIds.has(t.id));
+      if (fresh.length === 0) return prev;
+      return {
+        ...prev,
+        records: [...fresh, ...prev.records].sort((a, b) => {
+          const d = (b.date || '').localeCompare(a.date || '');
+          return d !== 0 ? d : (b.createdAt || 0) - (a.createdAt || 0);
+        }),
+        accts: prev.accts.map(a => (touchedAcc.has(a.id) ? accts.get(a.id)! : a)),
+        cards: prev.cards.map(c => (touchedCard.has(c.id) ? cards.get(c.id)! : c)),
+        recs: prev.recs.map(r => (dueIds.has(r.id) ? { ...r, lastRecorded: monthKey } : r)),
+      };
+    });
+
+    runCloudWrite(async uid => {
+      const batch = writeBatch(db);
+      newTxs.forEach(tx =>
+        batch.set(doc(db, 'users', uid, 'transactions', sanitizeId(tx.id)), toFirestoreTransaction(tx, uid, true))
+      );
+      touchedAcc.forEach(id =>
+        batch.update(doc(db, 'users', uid, 'accounts', sanitizeId(id)), {
+          balance: accts.get(id)!.balance,
+          updatedAt: serverTimestamp(),
+        })
+      );
+      touchedCard.forEach(id =>
+        batch.update(doc(db, 'users', uid, 'cards', sanitizeId(id)), {
+          currentBalance: cards.get(id)!.currentBalance,
+          updatedAt: serverTimestamp(),
+        })
+      );
+      due.forEach(rec =>
+        batch.update(doc(db, 'users', uid, 'recurrings', sanitizeId(rec.id)), {
+          lastRecorded: monthKey,
+          updatedAt: serverTimestamp(),
+        })
+      );
+      await batch.commit().catch(err =>
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/recurrings`)
+      );
+    });
+
+    return due.map(rec => ({
+      recId: rec.id,
+      txId: recurringTxId(rec.id, monthKey),
+      name: rec.name,
+      amount: rec.amount,
+      sourceName:
+        snap.cards.find(c => c.id === rec.accountId)?.name ||
+        snap.accts.find(a => a.id === rec.accountId)?.name ||
+        '',
+    }));
+  };
+
+  const recordRecurringNow = (recId: string) => {
+    postRecurring({ recIds: [recId], force: true });
   };
 
   // Settings
@@ -2423,6 +2546,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateRecurring,
         deleteRecurring,
         recordRecurringNow,
+        postRecurring,
         updateSettings,
         togglePrivacyMask,
         exportBackupJSON,

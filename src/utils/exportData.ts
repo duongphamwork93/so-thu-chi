@@ -37,7 +37,10 @@ export function exportTransactionsCSV(
       r.date,
       r.type === 'in' ? 'Thu' : 'Chi',
       categoryMap[r.cat]?.name || r.cat,
-      r.type === 'out' ? JAR_META[classifyJar(r, categoryMap)].code : '',
+      r.type === 'out' ? (() => {
+        const jar = classifyJar(r, categoryMap);
+        return jar ? JAR_META[jar].code : 'Trung tính';
+      })() : '',
       r.type === 'in' ? r.amount : -r.amount,
       sourceName(r.accountId),
       r.note || '',
