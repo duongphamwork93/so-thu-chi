@@ -19,6 +19,7 @@ import {
   BookOpen,
   AlertTriangle,
   Lock,
+  Camera,
 } from 'lucide-react';
 import { usePlus } from '../../context/PlusContext';
 import { JarBudgetCard } from '../overview/JarBudgetCard';
@@ -48,6 +49,8 @@ interface OverviewViewProps {
   onOpenTripsContacts?: (tab: 'trips' | 'contacts') => void;
   onOpenDebts?: () => void;
   onOpenRecurring?: () => void;
+  /** Lối tắt: ảnh hoá đơn vừa chọn → mở Ghi sổ ở chế độ Quét và quét ngay */
+  onScanFiles?: (files: File[]) => void;
   initialSection?: 'overview' | 'report';
 }
 
@@ -59,6 +62,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onOpenTripsContacts,
   onOpenDebts,
   onOpenRecurring,
+  onScanFiles,
   initialSection = 'overview',
 }) => {
   const { data, currentMonth, recordRecurringNow, categoryMap } = useFinance();
@@ -310,6 +314,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         />
       ) : (
         <>
+          {/* 0a. Lối tắt 1 chạm: Quét hóa đơn / Ảnh đơn hàng */}
+          {onScanFiles && (
+            <label className="w-full min-h-[64px] px-4 py-3 rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 flex items-center gap-3 active:scale-[0.99] transition-all cursor-pointer">
+              <span className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <Camera size={22} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm sm:text-base font-extrabold">Quét hóa đơn / Ảnh đơn hàng</span>
+                <span className="block text-[11px] sm:text-xs opacity-90">
+                  Chụp hoặc chọn ảnh bill, đơn Shopee, chuyển khoản — AI tự ghi sổ
+                </span>
+              </span>
+              <ChevronRight size={20} className="shrink-0 opacity-90" />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  const files = Array.from(e.target.files || []);
+                  e.target.value = '';
+                  if (files.length > 0) onScanFiles(files);
+                }}
+              />
+            </label>
+          )}
+
           {/* 0b. Thông báo khoản định kỳ vừa tự ghi sổ */}
           <AutoPostedBanner onOpenManager={() => onOpenRecurring?.()} />
 

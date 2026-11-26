@@ -9,6 +9,7 @@ import {
   LEGACY_CATEGORIES,
   MERGED_LEGACY_KEYS,
   canonicalCategoryKey,
+  sectionRank,
 } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
 import { AddCategoryModal, JAR_CHOICES } from '../modals/AddCategoryModal';
@@ -16,19 +17,7 @@ import { classifyJar } from '../../utils/jars';
 import { TransactionType } from '../../types/finance';
 import { showToast } from '../../utils/toast';
 
-const SECTION_ORDER = [
-  'Ăn uống',
-  'Con cái',
-  'Đi lại',
-  'Nhà cửa & Sinh hoạt',
-  'Sức khỏe',
-  'Trang phục & Làm đẹp',
-  'Hưởng thụ',
-  'Phát triển',
-  'Hiếu hỉ',
-  'Tài chính & Đầu tư',
-  'Thu nhập',
-];
+
 
 interface Row {
   info: CategoryInfo;
@@ -90,9 +79,7 @@ export const CategoryManagerView: React.FC = () => {
       map.get(sec)!.push(r);
     });
     return [...map.entries()].sort((a, b) => {
-      const ia = SECTION_ORDER.indexOf(a[0]);
-      const ib = SECTION_ORDER.indexOf(b[0]);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      return sectionRank(a[0]) - sectionRank(b[0]);
     });
   }, [visible]);
 

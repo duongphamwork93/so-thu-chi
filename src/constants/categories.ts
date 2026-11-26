@@ -157,6 +157,26 @@ export function applyCategoryOverride(
 /** Danh mục cũ đã gộp hẳn (không cho hiện lại riêng). */
 export const MERGED_LEGACY_KEYS = new Set(Object.keys(CATEGORY_ALIASES));
 
+/** Thứ tự nhóm danh mục hiển thị thống nhất trên mọi màn hình. */
+export const CATEGORY_SECTION_ORDER = [
+  'Ăn uống',
+  'Con cái',
+  'Đi lại',
+  'Nhà cửa & Sinh hoạt',
+  'Sức khỏe',
+  'Trang phục & Làm đẹp',
+  'Hưởng thụ',
+  'Phát triển',
+  'Hiếu hỉ',
+  'Tài chính & Đầu tư',
+  'Thu nhập',
+];
+
+export function sectionRank(section: string): number {
+  const i = CATEGORY_SECTION_ORDER.indexOf(section);
+  return i < 0 ? 99 : i;
+}
+
 export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
 export const CATEGORY_MAP: Record<string, CategoryInfo> = Object.fromEntries(
   [...LEGACY_CATEGORIES, ...ALL_CATEGORIES].map(c => [c.key, c])

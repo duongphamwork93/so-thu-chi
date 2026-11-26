@@ -32,6 +32,7 @@ import { getBeneficiaries } from '../../constants/beneficiaries';
 import { AddCategoryModal } from './AddCategoryModal';
 import { ParsedVoiceTransaction } from './VoiceTransactionModal';
 import { ReceiptScannerPanel } from '../ReceiptScannerPanel';
+import { CategorySelectDropdown } from '../CategorySelectDropdown';
 import { usePlus } from '../../context/PlusContext';
 import { parseQuickText } from '../../utils/quickParse';
 import { evaluateSpendNotices } from '../../utils/spendGuard';
@@ -45,6 +46,10 @@ interface AddTransactionModalProps {
   initialDate?: string;
   prefilledData?: ParsedVoiceTransaction | null;
   onOpenVoice?: () => void;
+  /** Chế độ mở mặc định — mặc định 'receipt' (Quét hoá đơn) */
+  initialMode?: 'receipt' | 'manual';
+  /** Ảnh hoá đơn đã chọn sẵn từ lối tắt ở trang Tổng quan → quét ngay */
+  initialFiles?: File[] | null;
 }
 
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
@@ -55,11 +60,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   initialDate,
   prefilledData,
   onOpenVoice,
+  initialMode = 'receipt',
+  initialFiles,
 }) => {
   const { addTransaction, updateSettings, data, allExpenseCategories, allIncomeCategories, categoryMap } = useFinance();
   const { plus } = usePlus();
 
-  const [entryMode, setEntryMode] = useState<'manual' | 'receipt'>('manual');
+  const [entryMode, setEntryMode] = useState<'manual' | 'receipt'>(initialMode);
   const [type, setType] = useState<TransactionType>(initialType);
   const [amountStr, setAmountStr] = useState<string>('');
   const [selectedCat, setSelectedCat] = useState<string>(initialType === 'out' ? 'an_uong' : 'luong');
@@ -91,7 +98,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    setEntryMode('manual');
+    setEntryMode(prefilledData ? 'manual' : initialMode);
     setCatSearch('');
     setSelectedSection('all');
     setQuickInput('');
@@ -253,7 +260,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       const res = await fetch('/api/gemini/quick-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, currentDate: date }),
+        body: JSON.stringify({
+          text,
+          currentDate: date,
+          categories: [
+            ...allExpenseCategories.map(c => ({ key: c.key, name: c.name, type: 'out' })),
+            ...allIncomeCategories.map(c => ({ key: c.key, name: c.name, type: 'in' })),
+          ],
+        }),
       });
 
       if (res.ok) {
@@ -356,7 +370,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[88vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom duration-200 overflow-hidden">
+      <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom duration-200 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2">
@@ -372,13 +386,26 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           </button>
         </div>
 
-        {/* Pinned Entry Mode Bar: Nhập tay | Quét hóa đơn AI | Giọng nói */}
+        {/* Thanh chế độ: Quét hóa đơn (mặc định) | Nhập tay | Giọng nói */}
         <div className="px-5 py-2.5 bg-slate-50/70 dark:bg-slate-900/90 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div
             className={`grid ${
-              onOpenVoice ? 'grid-cols-3' : 'grid-cols-2'
+              onOpenVoice ? 'grid-cols-[1.4fr_1fr_1fr]' : 'grid-cols-[1.4fr_1fr]'
             } p-1 bg-slate-200/70 dark:bg-slate-800 rounded-2xl gap-1`}
           >
+            <button
+              type="button"
+              onClick={() => setEntryMode('receipt')}
+              className={`min-h-[40px] px-2 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                entryMode === 'receipt'
+                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Camera size={14} className="shrink-0" />
+              <span className="truncate">Quét hóa đơn</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setEntryMode('manual')}
@@ -392,18 +419,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               <span className="truncate">Nhập tay</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setEntryMode('receipt')}
-              className={`min-h-[40px] px-2 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                entryMode === 'receipt'
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Camera size={14} className="shrink-0" />
-              <span className="truncate">Quét hóa đơn</span>
-            </button>
 
             {onOpenVoice && (
               <button
@@ -424,15 +439,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
         {/* Modal Body: AI Receipt Scanner OR Manual Form */}
         {entryMode === 'receipt' ? (
-          <div className="overflow-y-auto px-5 py-4 pb-[max(2rem,env(safe-area-inset-bottom,24px))]">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 pb-[max(2rem,env(safe-area-inset-bottom,24px))]">
             <ReceiptScannerPanel
               compact
               defaultDate={initialDate || getTodayDateString()}
               onSavedAndClose={onClose}
+              initialFiles={initialFiles || undefined}
             />
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
           {/* Quick Natural Text Input + Voice Mic Button */}
           <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">
@@ -572,7 +589,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         }`}
                       >
                         <CategoryIcon catKey={cat.key} size="sm" showBackground={false} />
-                        <span>{cat.shortName}</span>
+                        <span>{cat.name}</span>
                       </button>
                     );
                   })}
@@ -580,100 +597,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Chọn hạng mục
-              </label>
-              <button
-                type="button"
-                onClick={() => setIsAddCategoryOpen(true)}
-                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus size={14} strokeWidth={2.5} />
-                <span>Thêm loại mới</span>
-              </button>
-            </div>
-
-            {/* Category search filter */}
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={catSearch}
-                onChange={e => setCatSearch(e.target.value)}
-                placeholder="Tìm hạng mục (VD: ăn sáng, xăng, điện, lương...)..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            {/* Section filter tabs */}
-            {availableSections.length > 1 && !catSearch.trim() && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSection('all')}
-                  className={`min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer border ${
-                    selectedSection === 'all'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  Tất cả ({currentCategories.length})
-                </button>
-                {availableSections.map(sec => (
-                  <button
-                    key={sec}
-                    type="button"
-                    onClick={() => setSelectedSection(sec)}
-                    className={`min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer border ${
-                      selectedSection === sec
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {sec}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-              {filteredCategories.map(cat => {
-                const isSelected = selectedCat === cat.key;
-                return (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    onClick={() => setSelectedCat(cat.key)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all cursor-pointer ${
-                      isSelected
-                        ? 'ring-2 ring-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 font-bold scale-[1.02]'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    <CategoryIcon catKey={cat.key} size="md" />
-                    <span className="text-[11px] mt-1 text-center truncate max-w-full leading-tight font-medium">
-                      {cat.shortName}
-                    </span>
-                  </button>
-                );
-              })}
-
-              {/* Add Custom Category Card Button */}
-              <button
-                type="button"
-                onClick={() => setIsAddCategoryOpen(true)}
-                className="flex flex-col items-center justify-center p-2 rounded-2xl border-2 border-dashed border-emerald-300 dark:border-emerald-700/80 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/40 active:scale-95 transition-all group cursor-pointer"
-                title="Tạo loại giao dịch mới của riêng bạn"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-emerald-600/10 dark:bg-emerald-400/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                  <Plus size={20} strokeWidth={2.5} />
-                </div>
-                <span className="text-[11px] mt-1 text-center truncate max-w-full leading-tight font-bold text-emerald-700 dark:text-emerald-400">
-                  + Thêm loại
-                </span>
-              </button>
-            </div>
+            <CategorySelectDropdown
+              type={type}
+              label="Danh mục"
+              value={selectedCat}
+              onChange={setSelectedCat}
+              showFrequent={false}
+            />
           </div>
 
           {/* Beneficiary Selector: Chi Cho Ai */}
@@ -914,8 +844,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-2 pb-[max(1.75rem,env(safe-area-inset-bottom,20px))] flex gap-2">
+          </div>
+
+          {/* Action Buttons — ghim cố định ở đáy */}
+          <div className="shrink-0 sticky bottom-0 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,16px))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
             <button
               type="button"
               onClick={onClose}

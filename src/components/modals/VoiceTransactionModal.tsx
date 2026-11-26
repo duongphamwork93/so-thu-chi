@@ -25,7 +25,9 @@ import { CategoryIcon } from '../CategoryIcon';
 import { formatVND, getTodayDateString, parseVietnameseMoneyText } from '../../utils/formatters';
 import { resolveDefaultPaymentAccountId } from '../../utils/paymentMatcher';
 import { encodeFloat32ChunksToWav } from '../../utils/audioWavRecorder';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, guessCategoryByText } from '../../constants/categories';
+import { canonicalCategoryKey } from '../../constants/categories';
+import { autoClassifyTransaction } from '../../utils/autoClassify';
+import { CategorySelectDropdown } from '../CategorySelectDropdown';
 import { BeneficiaryKey, TransactionType } from '../../types/finance';
 
 export interface ParsedVoiceTransaction {
@@ -262,7 +264,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
 
   const localFallbackParse = (text: string): ParsedVoiceTransaction => {
     const amount = parseVietnameseMoneyText(text);
-    const catKey = guessCategoryByText(text);
+    const catKey = autoClassifyTransaction(text).cat;
     const isInc = allIncomeCategories.some(c => c.key === catKey);
     const txType: TransactionType = isInc ? 'in' : 'out';
     const matchedAcc = matchAccountId(undefined, txType, text);
@@ -313,12 +315,15 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
 
       const d = json.data;
       const txType: TransactionType = d.type === 'in' ? 'in' : 'out';
+      const local = autoClassifyTransaction(`${d.transcript || ''} ${d.note || ''}`);
       const resolvedCat =
-        categoryMap[d.category]
-          ? d.category
+        txType === 'out' && local.confidence === 'strong' && categoryMap[local.cat]
+          ? local.cat // quy tắc ngữ cảnh sản phẩm chắc chắn → ưu tiên hơn AI
+          : categoryMap[d.category]
+          ? canonicalCategoryKey(d.category)
           : txType === 'in'
           ? 'thu_khac'
-          : guessCategoryByText(`${d.transcript || ''} ${d.note || ''}`);
+          : local.cat;
 
       const matchedAcc = matchAccountId(
         d.account,
@@ -700,48 +705,9 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
 
   const resolveValidVoiceCategory = (catKey: string | undefined, txType: TransactionType): string => {
     const list = txType === 'out' ? allExpenseCategories : allIncomeCategories;
-    if (catKey && list.some(c => c.key === catKey)) return catKey;
+    const k = catKey ? canonicalCategoryKey(catKey) : '';
+    if (k && list.some(c => c.key === k)) return k;
     return txType === 'out' ? 'an_uong' : 'thu_khac';
-  };
-
-  const renderVoiceCategoryOptions = (txType: TransactionType) => {
-    const list = txType === 'out' ? allExpenseCategories : allIncomeCategories;
-    const builtInSet = new Set(
-      (txType === 'out' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => c.key)
-    );
-    const builtInItems = list.filter(c => builtInSet.has(c.key));
-    const customItems = list.filter(c => !builtInSet.has(c.key));
-
-    const sections: string[] = [];
-    builtInItems.forEach(c => {
-      const sec = c.section || (txType === 'out' ? 'Khác' : 'Thu nhập');
-      if (!sections.includes(sec)) sections.push(sec);
-    });
-
-    return (
-      <>
-        {sections.map(sec => (
-          <optgroup key={sec} label={sec}>
-            {builtInItems
-              .filter(c => (c.section || (txType === 'out' ? 'Khác' : 'Thu nhập')) === sec)
-              .map(c => (
-                <option key={c.key} value={c.key}>
-                  {c.name}
-                </option>
-              ))}
-          </optgroup>
-        ))}
-        {customItems.length > 0 && (
-          <optgroup label="Danh mục bạn tự thêm">
-            {customItems.map(c => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </>
-    );
   };
 
   return createPortal(
@@ -1063,22 +1029,11 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                       Đổi danh mục nhanh
                     </label>
-                    <div className="relative flex items-center">
-                      <div className="absolute left-2.5 pointer-events-none">
-                        <CategoryIcon catKey={resolveValidVoiceCategory(parsedResult.category, parsedResult.type)} size="sm" />
-                      </div>
-                      <select
-                        value={resolveValidVoiceCategory(parsedResult.category, parsedResult.type)}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setParsedResult(prev => prev ? { ...prev, category: val } : null);
-                        }}
-                        className="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl pl-11 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer truncate"
-                      >
-                        {renderVoiceCategoryOptions(parsedResult.type)}
-                      </select>
-                      <ChevronDown size={14} className="absolute right-3 text-slate-400 pointer-events-none" />
-                    </div>
+                    <CategorySelectDropdown
+                      type={parsedResult.type}
+                      value={resolveValidVoiceCategory(parsedResult.category, parsedResult.type)}
+                      onChange={val => setParsedResult(prev => (prev ? { ...prev, category: val } : null))}
+                    />
                   </div>
                 </div>
               </div>

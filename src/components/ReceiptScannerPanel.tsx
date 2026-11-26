@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
   Sparkles,
@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../context/FinanceContext';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
+import { canonicalCategoryKey } from '../constants/categories';
+import { autoClassifyTransaction } from '../utils/autoClassify';
+import { CategorySelectDropdown } from './CategorySelectDropdown';
 import { formatVND, getTodayDateString } from '../utils/formatters';
 import { compressImage } from '../utils/imageCompressor';
 import { resolveDefaultPaymentAccountId } from '../utils/paymentMatcher';
@@ -77,6 +79,8 @@ interface ReceiptScannerPanelProps {
   onSwitchToQuickText?: () => void;
   /** Optional close handler inside modals after saving */
   onSavedAndClose?: () => void;
+  /** Ảnh chọn sẵn (từ lối tắt Tổng quan) → tự nạp và quét ngay */
+  initialFiles?: File[];
 }
 
 const formatBytes = (bytes: number) => {
@@ -92,6 +96,7 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
   defaultDate,
   onSwitchToQuickText,
   onSavedAndClose,
+  initialFiles,
 }) => {
   const {
     data,
@@ -121,48 +126,9 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
 
   const resolveValidCategory = (catKey: string | undefined, txType: 'in' | 'out'): string => {
     const list = txType === 'out' ? allExpenseCategories : allIncomeCategories;
-    if (catKey && list.some(c => c.key === catKey)) return catKey;
+    const k = catKey ? canonicalCategoryKey(catKey) : '';
+    if (k && list.some(c => c.key === k)) return k;
     return txType === 'out' ? 'an_uong' : 'thu_khac';
-  };
-
-  const renderCategoryOptions = (txType: 'in' | 'out') => {
-    const list = txType === 'out' ? allExpenseCategories : allIncomeCategories;
-    const builtInSet = new Set(
-      (txType === 'out' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => c.key)
-    );
-    const builtInItems = list.filter(c => builtInSet.has(c.key));
-    const customItems = list.filter(c => !builtInSet.has(c.key));
-
-    const sections: string[] = [];
-    builtInItems.forEach(c => {
-      const sec = c.section || (txType === 'out' ? 'Khác' : 'Thu nhập');
-      if (!sections.includes(sec)) sections.push(sec);
-    });
-
-    return (
-      <>
-        {sections.map(sec => (
-          <optgroup key={sec} label={sec}>
-            {builtInItems
-              .filter(c => (c.section || (txType === 'out' ? 'Khác' : 'Thu nhập')) === sec)
-              .map(c => (
-                <option key={c.key} value={c.key}>
-                  {c.name}
-                </option>
-              ))}
-          </optgroup>
-        ))}
-        {customItems.length > 0 && (
-          <optgroup label="Danh mục bạn tự thêm">
-            {customItems.map(c => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </>
-    );
   };
 
   const resetReceiptScanner = () => {
@@ -179,6 +145,25 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
 
   const handleImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    await addImageFiles(files);
+  };
+
+  // Nạp ảnh từ lối tắt "Quét hóa đơn" ở Tổng quan rồi tự động quét
+  const [autoScanPending, setAutoScanPending] = useState(false);
+  const initialFilesRef = useRef<File[] | undefined>(undefined);
+  useEffect(() => {
+    if (!initialFiles || initialFiles.length === 0 || initialFilesRef.current === initialFiles) return;
+    initialFilesRef.current = initialFiles;
+    addImageFiles(initialFiles).then(() => setAutoScanPending(true));
+  }, [initialFiles]);
+  useEffect(() => {
+    if (!autoScanPending || isCompressing || isScanning || selectedImages.length === 0) return;
+    setAutoScanPending(false);
+    handleScanReceipts();
+  }, [autoScanPending, isCompressing, isScanning, selectedImages.length]);
+
+  const addImageFiles = async (files: File[]) => {
     if (files.length === 0) return;
 
     const shouldStartFresh = hasSavedReceipt || savedBatchCount > 0;
@@ -247,7 +232,6 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
       }
     } finally {
       setIsCompressing(false);
-      e.target.value = '';
     }
   };
 
@@ -294,6 +278,11 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
             imageBase64: img.base64,
             mimeType: 'image/jpeg',
             todayDate: uploadToday,
+            // Danh sách danh mục động (mặc định + tự tạo, đã áp dụng đổi tên/ẩn) → AI chọn đúng key
+            categories: [
+              ...allExpenseCategories.map(c => ({ key: c.key, name: c.name, type: 'out' })),
+              ...allIncomeCategories.map(c => ({ key: c.key, name: c.name, type: 'in' })),
+            ],
           }),
           signal: controller.signal,
         });
@@ -349,7 +338,12 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
         const mapped: ScannedTransactionItem[] = rawList.map((t, idx) => {
           const isInc = t.type === 'in';
           const txType = isInc ? ('in' as const) : ('out' as const);
-          const safeCategory = resolveValidCategory(t.category, txType);
+          // Quy tắc ngữ cảnh sản phẩm (engine dùng chung) ưu tiên hơn gợi ý của AI khi khớp chắc chắn
+          const local = autoClassifyTransaction(t.note || '', [], t.merchant || '');
+          const safeCategory =
+            txType === 'out' && local.confidence === 'strong' && allExpenseCategories.some(c => c.key === local.cat)
+              ? local.cat
+              : resolveValidCategory(canonicalCategoryKey(t.category || ''), txType);
           const isChildCat = [
             'con_sua_bim',
             'giao_duc',
@@ -357,6 +351,8 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
             'con_do_dung',
             'con_y_te',
             'con_tieu_vat',
+            'con_quan_ao',
+            'con_hoc_can_thiep',
           ].includes(safeCategory);
           const resolvedAcc = resolveDefaultPaymentAccountId({
             type: txType,
@@ -1183,27 +1179,15 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
                     <label className="text-[11px] font-bold text-slate-500 uppercase">
                       Danh mục
                     </label>
-                    <div className="relative flex items-center">
-                      <div className="absolute left-2.5 pointer-events-none">
-                        <CategoryIcon catKey={resolveValidCategory(item.category, item.type)} size="sm" />
-                      </div>
-                      <select
+                    <CategorySelectDropdown
+                        type={item.type}
                         value={resolveValidCategory(item.category, item.type)}
-                        onChange={e => {
-                          const val = e.target.value;
+                        onChange={val =>
                           setScannedItems(prev =>
                             prev.map(it => (it.id === item.id ? { ...it, category: val } : it))
-                          );
-                        }}
-                        className="w-full max-w-full min-w-0 min-h-[42px] block box-border bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-11 pr-8 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none appearance-none cursor-pointer truncate"
-                      >
-                        {renderCategoryOptions(item.type)}
-                      </select>
-                      <ChevronDown
-                        size={14}
-                        className="absolute right-3 text-slate-400 pointer-events-none"
+                          )
+                        }
                       />
-                    </div>
                   </div>
 
                   <div className="space-y-1 min-w-0">
@@ -1505,28 +1489,11 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                 Danh Mục
               </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-2.5 pointer-events-none">
-                  <CategoryIcon
-                    catKey={resolveValidCategory(receiptForm.category, receiptForm.type)}
-                    size="sm"
-                  />
-                </div>
-                <select
+              <CategorySelectDropdown
+                  type={receiptForm.type}
                   value={resolveValidCategory(receiptForm.category, receiptForm.type)}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setReceiptForm(prev => (prev ? { ...prev, category: val } : null));
-                  }}
-                  className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl pl-11 pr-8 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 appearance-none cursor-pointer truncate"
-                >
-                  {renderCategoryOptions(receiptForm.type)}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-3 text-slate-400 pointer-events-none"
+                  onChange={val => setReceiptForm(prev => (prev ? { ...prev, category: val } : null))}
                 />
-              </div>
             </div>
 
             <div className="space-y-1.5 min-w-0">

@@ -6,6 +6,7 @@ import { usePlus } from '../../context/PlusContext';
 import { TransactionType } from '../../types/finance';
 import { JarChoice } from '../../types/plus';
 import { classifyJar } from '../../utils/jars';
+import { CATEGORY_SECTION_ORDER } from '../../constants/categories';
 import { showToast } from '../../utils/toast';
 import { CategoryIcon, AVAILABLE_CATEGORY_ICONS } from '../CategoryIcon';
 import confetti from 'canvas-confetti';
@@ -35,18 +36,7 @@ export const JAR_CHOICES: Array<{ id: JarChoice; code: string; label: string; hi
   { id: 'none', code: 'Trung tính', label: 'Không tính vào 6 hũ', hint: 'Cho vay, mua hộ, tạm ứng', color: '#64748B' },
 ];
 
-const SECTIONS_OUT = [
-  'Ăn uống',
-  'Con cái',
-  'Đi lại',
-  'Nhà cửa & Sinh hoạt',
-  'Sức khỏe',
-  'Trang phục & Làm đẹp',
-  'Hưởng thụ',
-  'Phát triển',
-  'Hiếu hỉ',
-  'Tài chính & Đầu tư',
-];
+const SECTIONS_OUT = CATEGORY_SECTION_ORDER.filter(sec => sec !== 'Thu nhập');
 const SECTIONS_IN = ['Thu nhập', 'Kinh doanh', 'Đầu tư', 'Khác'];
 
 const groupFromJar = (jar: JarChoice): 'need' | 'want' | 'save' =>

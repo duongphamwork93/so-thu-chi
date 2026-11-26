@@ -153,6 +153,35 @@ async function generateWithFallback(
   throw lastError || new Error('Không thể kết nối tới máy chủ AI.');
 }
 
+const DEFAULT_CATEGORY_LIST = `- an_uong (Cơm, bún, phở, nhà hàng, quán ăn, GrabFood, ShopeeFood)
+- cho_sieu_thi (WinMart, WinCommerce, Co.opmart, Bách Hóa Xanh, Lotte, Aeon, đồ đi chợ tươi sống)
+- di_lai (Xăng xe Petrolimex, Grab, Be, Xanh SM, VETC, vé máy bay, gửi xe)
+- dien (Tiền điện EVN)
+- nuoc (Tiền nước sinh hoạt)
+- internet (Internet FPT/VNPT/Viettel)
+- do_sinh_hoat (Đồ dùng sinh hoạt: giấy ăn, giấy vệ sinh, nước giặt, nước rửa bát, túi rác, đồ tiêu hao trong nhà)
+- con_sua_bim (Sữa bột, bỉm tã, nước yến/dinh dưỡng cho trẻ em, Con Cưng, KidsPlaza, BiboMart)
+- giao_duc (Học phí, trường mầm non, sách vở, học tiếng Anh)
+- con_quan_ao (Quần áo trẻ em, đồ dùng cho bé)
+- con_do_dung (Đồ chơi cho bé)
+- con_hoc_can_thiep (Học can thiệp, trị liệu ngôn ngữ/hoạt động cho bé)
+- con_y_te (Khám nhi, tiêm chủng VNVC, thuốc/chăm sóc răng miệng cho bé)
+- suc_khoe (Nhà thuốc Long Châu, Pharmacity, thuốc, nước súc miệng, thực phẩm chức năng, khám bệnh, bảo hiểm)
+- cafe (Highlands, Phúc Long, Starbucks, trà sữa, quán cafe)
+- mua_sam (Shopee, Lazada, TikTok Shop, quần áo, mỹ phẩm, điện tử)
+- giai_tri (Xem phim CGV, du lịch, Netflix, Spotify, tiệc tùng)
+- hieu_hi (Đám cưới, mừng tân gia, sinh nhật, phong bì, quà tặng)
+- tiet_kiem (Gửi tiết kiệm)
+- mua_vang (Mua vàng tích trữ: SJC, PNJ, DOJI, vàng nhẫn)
+- dau_tu (Đầu tư chứng khoán, chứng chỉ quỹ, ETF)
+- tra_no (Trả nợ vay ngân hàng, thẻ tín dụng, trả góp)
+- khac (Chi tiêu khác)
+- luong (Lương nhận vào)
+- thuong (Tiền thưởng)
+- thu_phu (Làm thêm ngoài giờ, bán hàng online)
+- loi_dau_tu (Lãi tiết kiệm, cổ tức, tiền lời)
+- duoc_tang (Tiền lì xì, người khác biếu tặng)`;
+
 export default async function handler(req: any, res: any) {
   // Enable CORS for Vercel
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -168,7 +197,17 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { imageBase64, mimeType, rawText, todayDate } = req.body || {};
+    const { imageBase64, mimeType, rawText, todayDate, categories } = req.body || {};
+    // Danh sách danh mục động từ app (mặc định + tự tạo, đã đổi tên/ẩn); nếu thiếu thì dùng danh sách mặc định
+    const categoryListText =
+      Array.isArray(categories) && categories.length > 0
+        ? categories
+            .filter((c: any) => c && typeof c.key === 'string')
+            .slice(0, 200)
+            .map((c: any) => `- ${c.key} (${String(c.name || c.key).slice(0, 80)} - ${c.type === 'in' ? 'Thu' : 'Chi'})`)
+            .join('\n') +
+          `\nGợi ý ngữ cảnh: khăn giấy/giấy ăn/túi rác/nước giặt/kem đánh răng → do_sinh_hoat; sữa công thức/bỉm/yến/váng sữa/ăn dặm cho bé → con_sua_bim; Claude/YouTube/Netflix/iCloud/gia hạn phần mềm → thue_bao; mua hộ/cho vay/tạm ứng → cho_vay; chỉ chọn mua_vang khi là giao dịch tiệm vàng/mua vàng tích trữ (KHÔNG dựa vào chữ "Vàng" trong tên sản phẩm).`
+        : DEFAULT_CATEGORY_LIST;
 
     // Resolve local upload date (YYYY-MM-DD). Prefer client local date; fallback to UTC+7 (Vietnam).
     const safeTodayDate =
@@ -231,34 +270,7 @@ QUY TẮC RẤT QUAN TRỌNG:
 - type: 'out' nếu là Tiền ra / Mua sắm / Thanh toán / Trừ tiền (-); 'in' nếu là Tiền vào / Nhận tiền / Cộng tiền (+).
 
 4. Danh mục khả dụng (chọn đúng một mã key phù hợp nhất cho từng giao dịch):
-- an_uong (Cơm, bún, phở, nhà hàng, quán ăn, GrabFood, ShopeeFood)
-- cho_sieu_thi (WinMart, WinCommerce, Co.opmart, Bách Hóa Xanh, Lotte, Aeon, đồ đi chợ tươi sống)
-- di_lai (Xăng xe Petrolimex, Grab, Be, Xanh SM, VETC, vé máy bay, gửi xe)
-- dien (Tiền điện EVN)
-- nuoc (Tiền nước sinh hoạt)
-- internet (Internet FPT/VNPT/Viettel)
-- do_sinh_hoat (Đồ dùng sinh hoạt: giấy ăn, giấy vệ sinh, nước giặt, nước rửa bát, túi rác, đồ tiêu hao trong nhà)
-- con_sua_bim (Sữa bột, bỉm tã, nước yến/dinh dưỡng cho trẻ em, Con Cưng, KidsPlaza, BiboMart)
-- giao_duc (Học phí, trường mầm non, sách vở, học tiếng Anh)
-- con_quan_ao (Quần áo trẻ em, đồ dùng cho bé)
-- con_do_dung (Đồ chơi cho bé)
-- con_hoc_can_thiep (Học can thiệp, trị liệu ngôn ngữ/hoạt động cho bé)
-- con_y_te (Khám nhi, tiêm chủng VNVC, thuốc/chăm sóc răng miệng cho bé)
-- suc_khoe (Nhà thuốc Long Châu, Pharmacity, thuốc, nước súc miệng, thực phẩm chức năng, khám bệnh, bảo hiểm)
-- cafe (Highlands, Phúc Long, Starbucks, trà sữa, quán cafe)
-- mua_sam (Shopee, Lazada, TikTok Shop, quần áo, mỹ phẩm, điện tử)
-- giai_tri (Xem phim CGV, du lịch, Netflix, Spotify, tiệc tùng)
-- hieu_hi (Đám cưới, mừng tân gia, sinh nhật, phong bì, quà tặng)
-- tiet_kiem (Gửi tiết kiệm)
-- mua_vang (Mua vàng tích trữ: SJC, PNJ, DOJI, vàng nhẫn)
-- dau_tu (Đầu tư chứng khoán, chứng chỉ quỹ, ETF)
-- tra_no (Trả nợ vay ngân hàng, thẻ tín dụng, trả góp)
-- khac (Chi tiêu khác)
-- luong (Lương nhận vào)
-- thuong (Tiền thưởng)
-- thu_phu (Làm thêm ngoài giờ, bán hàng online)
-- loi_dau_tu (Lãi tiết kiệm, cổ tức, tiền lời)
-- duoc_tang (Tiền lì xì, người khác biếu tặng)
+${categoryListText}
 
 Văn bản bổ sung nếu có: ${rawText || ''}`;
 

@@ -27,6 +27,7 @@ const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalInitialDate, setAddModalInitialDate] = useState<string | undefined>(undefined);
+  const [scanFiles, setScanFiles] = useState<File[] | null>(null);
   const [voicePrefill, setVoicePrefill] = useState<ParsedVoiceTransaction | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [tripsContactsTab, setTripsContactsTab] = useState<'trips' | 'contacts' | null>(null);
@@ -48,6 +49,13 @@ const MainApp: React.FC = () => {
   const handleOpenAddDefault = () => {
     setVoicePrefill(null);
     setAddModalInitialDate(undefined);
+    setIsAddModalOpen(true);
+  };
+
+  const handleScanFiles = (files: File[]) => {
+    setVoicePrefill(null);
+    setAddModalInitialDate(undefined);
+    setScanFiles(files);
     setIsAddModalOpen(true);
   };
 
@@ -129,6 +137,7 @@ const MainApp: React.FC = () => {
               setActiveTab('assets');
             }}
             onOpenRecurring={() => setIsRecurringOpen(true)}
+            onScanFiles={handleScanFiles}
             initialSection="overview"
           />
         )}
@@ -199,8 +208,10 @@ const MainApp: React.FC = () => {
           setIsAddModalOpen(false);
           setVoicePrefill(null);
           setAddModalInitialDate(undefined);
+          setScanFiles(null);
         }}
         initialDate={addModalInitialDate}
+        initialFiles={scanFiles}
         prefilledData={voicePrefill}
         onOpenVoice={() => setIsVoiceModalOpen(true)}
       />
