@@ -26,6 +26,7 @@ export function getDefaultPlus(): PlusData {
     cashbackToNec: {},
     dismissedAutoTx: {},
     recurringSeeded: false,
+    categoryOverrides: {},
   };
 }
 
@@ -73,6 +74,7 @@ export function normalizePlus(raw: unknown): PlusData {
     cashbackToNec: isObj(raw.cashbackToNec) ? { ...raw.cashbackToNec } : {},
     dismissedAutoTx: isObj(raw.dismissedAutoTx) ? { ...raw.dismissedAutoTx } : {},
     recurringSeeded: Boolean(raw.recurringSeeded),
+    categoryOverrides: isObj(raw.categoryOverrides) ? { ...raw.categoryOverrides } : {},
   };
 }
 
@@ -141,7 +143,7 @@ const PlusContext = createContext<PlusContextType | undefined>(undefined);
 
 export const PlusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, authReady } = useAuth();
-  const { data, currentMonth, importBackupJSON } = useFinance();
+  const { data, currentMonth, importBackupJSON, setCategoryOverrides } = useFinance();
   const [plus, setPlus] = useState<PlusData>(() => loadPlus());
   const [plusCloudState, setPlusCloudState] = useState<'off' | 'synced' | 'blocked'>('off');
 
@@ -225,6 +227,11 @@ export const PlusProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 1200);
     return () => clearTimeout(timer);
   }, [plus, user]);
+
+  // Đẩy chỉnh sửa danh mục sang sổ chính để mọi màn hình dùng chung tên/hũ mới
+  useEffect(() => {
+    setCategoryOverrides(plus.categoryOverrides);
+  }, [plus.categoryOverrides]);
 
   const paydayPlans = useMemo(
     () => (plus.paydayPlans.length > 0 ? plus.paydayPlans : buildDefaultPaydayPlans(data)),

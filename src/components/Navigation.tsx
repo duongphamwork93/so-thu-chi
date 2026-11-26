@@ -1,7 +1,7 @@
 import React from 'react';
 import { Home, ReceiptText, Plus, Landmark, LayoutGrid } from 'lucide-react';
 
-export type TabKey = 'home' | 'ledger' | 'report' | 'more' | 'assets' | 'ai' | 'settings';
+export type TabKey = 'home' | 'ledger' | 'report' | 'more' | 'assets' | 'ai' | 'settings' | 'categories';
 
 interface NavigationProps {
   activeTab: TabKey;
@@ -11,7 +11,8 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange, onOpenAddModal }) => {
   // Map subviews like 'ai', 'settings' to 'more' tab highlight
-  const isMoreActive = activeTab === 'more' || activeTab === 'ai' || activeTab === 'settings';
+  const isMoreActive =
+    activeTab === 'more' || activeTab === 'ai' || activeTab === 'settings' || activeTab === 'categories';
   const isHomeActive = activeTab === 'home' || activeTab === 'report';
   const isAssetsActive = activeTab === 'assets';
 

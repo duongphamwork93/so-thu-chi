@@ -13,6 +13,7 @@ import { MoreHubView } from './components/views/MoreHubView';
 import { AssetsView } from './components/views/AssetsView';
 import { AIAdvisorView } from './components/views/AIAdvisorView';
 import { SettingsView } from './components/views/SettingsView';
+import { CategoryManagerView } from './components/views/CategoryManagerView';
 import { AddTransactionModal } from './components/modals/AddTransactionModal';
 import { TransferModal } from './components/modals/TransferModal';
 import { AddAssetModal, AssetCategoryType } from './components/modals/AddAssetModal';
@@ -102,14 +103,14 @@ const MainApp: React.FC = () => {
         )}
 
         {/* Back button for sub-views of 'more' */}
-        {(activeTab === 'ai' || activeTab === 'settings') && (
+        {(activeTab === 'ai' || activeTab === 'settings' || activeTab === 'categories') && (
           <button
             type="button"
             onClick={() => setActiveTab('more')}
             className="mb-3 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold inline-flex items-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer shadow-xs"
           >
             <ArrowLeft size={14} />
-            <span>Quay lại Khác & Tiện ích</span>
+            <span>{activeTab === 'categories' ? 'Khác' : 'Quay lại Khác & Tiện ích'}</span>
           </button>
         )}
 
@@ -172,6 +173,7 @@ const MainApp: React.FC = () => {
           />
         )}
         {activeTab === 'ai' && <AIAdvisorView />}
+        {activeTab === 'categories' && <CategoryManagerView />}
         {activeTab === 'settings' && (
           <SettingsView
             onOpenGitHubModal={() => setIsGitHubModalOpen(true)}

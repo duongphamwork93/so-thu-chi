@@ -15,7 +15,7 @@ export const DEFAULT_JARS: JarTargets = {
 
 export const JAR_META: Record<JarKey, { code: string; label: string; desc: string; color: string }> = {
   nec: { code: 'NEC', label: 'Thiết yếu', desc: 'Ăn uống, nhà cửa, điện nước, đi lại, y tế', color: '#059669' },
-  ffa: { code: 'FFA', label: 'Tự do tài chính', desc: 'Đầu tư chứng khoán, vàng, quỹ', color: '#0D9488' },
+  ffa: { code: 'FFA', label: 'Tự do tài chính', desc: 'Mua vàng tích trữ, đầu tư, chứng chỉ quỹ', color: '#0D9488' },
   educ: { code: 'EDUC', label: 'Giáo dục', desc: 'Học phí, sách vở, khóa học', color: '#0891B2' },
   play: { code: 'PLAY', label: 'Hưởng thụ', desc: 'Cà phê, giải trí, du lịch, mua sắm', color: '#F59E0B' },
   give: { code: 'GIVE', label: 'Cho đi', desc: 'Quà tặng, hiếu hỉ, thiện nguyện', color: '#EC4899' },
@@ -64,7 +64,6 @@ export function classifyJar(
   if (
     noteLower.includes('đầu tư') ||
     noteLower.includes('chứng khoán') ||
-    noteLower.includes('vàng') ||
     catNameLower.includes('đầu tư')
   ) {
     return 'ffa';
