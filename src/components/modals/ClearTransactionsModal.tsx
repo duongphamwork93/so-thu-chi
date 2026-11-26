@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Download, Trash2, X, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 
 interface ClearTransactionsModalProps {
   isOpen: boolean;
@@ -13,7 +14,8 @@ export const ClearTransactionsModal: React.FC<ClearTransactionsModalProps> = ({
   onClose,
   onCleared,
 }) => {
-  const { data, clearAllTransactions, exportBackupJSON } = useFinance();
+  const { data, clearAllTransactions } = useFinance();
+  const { exportFullBackup } = usePlus();
   const [revertBalances, setRevertBalances] = useState(false);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export const ClearTransactionsModal: React.FC<ClearTransactionsModalProps> = ({
           {/* Quick backup link */}
           <button
             type="button"
-            onClick={exportBackupJSON}
+            onClick={exportFullBackup}
             className="w-full min-h-[42px] px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <Download size={15} />

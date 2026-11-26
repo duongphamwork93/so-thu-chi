@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
+import { PlusProvider } from './context/PlusContext';
+import { ToastHost } from './components/ToastHost';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { OverviewView } from './components/views/OverviewView';
@@ -242,7 +244,10 @@ export default function App() {
   return (
     <AuthProvider>
       <FinanceProvider>
-        <MainApp />
+        <PlusProvider>
+          <MainApp />
+          <ToastHost />
+        </PlusProvider>
       </FinanceProvider>
     </AuthProvider>
   );

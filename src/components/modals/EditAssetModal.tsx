@@ -5,6 +5,9 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatVND } from '../../utils/formatters';
 import { formatCurrencyInput, parseCurrencyInput } from '../../utils/numberFormatters';
 import { AccountType, DebtDirection, InvestmentType } from '../../types/finance';
+import { usePlus } from '../../context/PlusContext';
+import { getCardStatementSummary } from '../../utils/creditCardStatement';
+import { showToast } from '../../utils/toast';
 
 export type EditableAssetType = 'account' | 'deposit' | 'holding' | 'card' | 'debt' | 'goal';
 
@@ -34,7 +37,11 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
     deleteDebt,
     updateGoal,
     deleteGoal,
+    reconcileCardStatement,
+    data,
   } = useFinance();
+  const { plus, updatePlus } = usePlus();
+  const [cardSelfLimitStr, setCardSelfLimitStr] = useState('');
 
   // Account states
   const [accName, setAccName] = useState('');
@@ -111,6 +118,9 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
       );
       setCardStmtDay(String(assetData.statementDay || 15));
       setCardDueDay(String(assetData.dueDay || 5));
+      setCardSelfLimitStr(
+        plus.cardSelfLimits[assetData.id] ? formatCurrencyInput(plus.cardSelfLimits[assetData.id]) : ''
+      );
     } else if (assetType === 'debt') {
       setDebtDir(assetData.dir || 'lend');
       setDebtName(assetData.name || '');
@@ -178,6 +188,15 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
         dueDay: Number(cardDueDay) || 5,
         ...(trimmedStmt !== '' ? { statementBalance: parseCurrencyInput(trimmedStmt) } : {}),
       });
+      const selfLimit = parseCurrencyInput(cardSelfLimitStr);
+      if ((plus.cardSelfLimits[assetData.id] || 0) !== selfLimit) {
+        updatePlus(prev => {
+          const next = { ...prev.cardSelfLimits };
+          if (selfLimit > 0) next[assetData.id] = selfLimit;
+          else delete next[assetData.id];
+          return { cardSelfLimits: next };
+        });
+      }
     } else if (assetType === 'debt') {
       const amt = parseCurrencyInput(debtAmountStr);
       const paid = parseCurrencyInput(debtPaidStr);
@@ -240,6 +259,40 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
       case 'goal':
         return 'Sửa Mục Tiêu Tiết Kiệm';
     }
+  };
+
+  const liveCard = assetType === 'card' && assetData ? data.cards.find(c => c.id === assetData.id) : undefined;
+  const reconcileInfo = (() => {
+    if (!liveCard) return null;
+    const summary = getCardStatementSummary(liveCard, data.records, undefined, plus.stmtOverrides);
+    const actual = cardStmtBalStr.trim() !== '' ? parseCurrencyInput(cardStmtBalStr) : null;
+    return {
+      label: summary.statementMonthLabel,
+      appStatement: summary.statementBalance,
+      actual,
+      diff: actual !== null ? Math.round(actual - summary.statementBalance) : 0,
+      currentBalance: liveCard.currentBalance,
+    };
+  })();
+
+  const handleReconcile = () => {
+    if (!liveCard || !reconcileInfo || reconcileInfo.actual === null) return;
+    const diff = reconcileCardStatement(liveCard.id, reconcileInfo.actual, plus.stmtOverrides);
+    // Số chốt mới đã khớp ngân hàng → bỏ các lần chuyển kỳ thủ công của thẻ này
+    const cardTxIds = new Set(data.records.filter(r => r.accountId === liveCard.id).map(r => r.id));
+    updatePlus(prev => {
+      const next = { ...prev.stmtOverrides };
+      Object.keys(next).forEach(id => {
+        if (cardTxIds.has(id)) delete next[id];
+      });
+      return { stmtOverrides: next };
+    });
+    setCardBalStr(formatCurrencyInput(Math.max(0, liveCard.currentBalance + diff)));
+    showToast(
+      'success',
+      diff > 0 ? `Đã ghi phí ${formatVND(diff)} vào thẻ ${liveCard.name}` : `Đã ghi hoàn tiền ${formatVND(-diff)} vào thẻ ${liveCard.name}`,
+      'Dư nợ hiện tại đã đồng bộ với sao kê ngân hàng.'
+    );
   };
 
   return createPortal(
@@ -638,7 +691,24 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
 
                 <div>
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                    Số tiền chốt sao kê kỳ hiện tại (₫)
+                    Ngân sách chi tiêu mục tiêu/tháng (Hạn mức tự đặt)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={cardSelfLimitStr}
+                    onChange={e => setCardSelfLimitStr(formatCurrencyInput(e.target.value))}
+                    placeholder="VD: 12.000.000 (bỏ trống = không giới hạn)"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    App cảnh báo khi chi bằng thẻ trong kỳ sao kê chạm 80% và khi vượt mức này.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Số tiền chốt sao kê thực tế từ ngân hàng (₫)
                   </label>
                   <input
                     type="text"
@@ -649,8 +719,49 @@ export const EditAssetModal: React.FC<EditAssetModalProps> = ({
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none"
                   />
                   <span className="text-[11px] text-slate-400 mt-1 block">
-                    Hệ thống tự động chốt vào ngày sao kê hàng tháng; bạn có thể chỉnh lại nếu ngân hàng cộng thêm phí/hoàn tiền.
+                    Hệ thống tự động chốt vào ngày sao kê hàng tháng; nhập đúng số trên sao kê ngân hàng để đối soát phí/hoàn tiền.
                   </span>
+                  {reconcileInfo && (
+                    <div className="mt-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-500">App đang tính (sao kê {reconcileInfo.label}):</span>
+                        <strong className="money-mask tabular-nums">{formatVND(reconcileInfo.appStatement)}</strong>
+                      </div>
+                      {reconcileInfo.actual !== null && reconcileInfo.diff !== 0 && (
+                        <>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-slate-500">
+                              Chênh lệch ({reconcileInfo.diff > 0 ? 'phí/lãi ngân hàng' : 'hoàn tiền'}):
+                            </span>
+                            <strong
+                              className={`money-mask tabular-nums ${reconcileInfo.diff > 0 ? 'text-rose-500' : 'text-emerald-600'}`}
+                            >
+                              {reconcileInfo.diff > 0 ? '+' : '−'}
+                              {formatVND(Math.abs(reconcileInfo.diff))}
+                            </strong>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleReconcile}
+                            className="w-full min-h-[42px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                          >
+                            Tự động tạo bút toán điều chỉnh (Phí/Hoàn tiền)
+                          </button>
+                          <p className="text-[11px] text-slate-400">
+                            Sẽ ghi 1 giao dịch {reconcileInfo.diff > 0 ? 'phí' : 'hoàn tiền (không tính là thu nhập)'} vào thẻ và cập
+                            nhật Dư nợ hiện tại thành{' '}
+                            <strong className="money-mask">
+                              {formatVND(Math.max(0, reconcileInfo.currentBalance + reconcileInfo.diff))}
+                            </strong>
+                            .
+                          </p>
+                        </>
+                      )}
+                      {reconcileInfo.actual !== null && reconcileInfo.diff === 0 && (
+                        <p className="text-emerald-600 font-semibold">✓ Khớp với sao kê ngân hàng</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

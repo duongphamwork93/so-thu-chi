@@ -19,6 +19,7 @@ import {
   Palette,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { BackupRestoreCard } from '../BackupRestoreCard';
 import { useAuth } from '../../context/AuthContext';
 import { formatVNDShort } from '../../utils/formatters';
 import { getColorThemeOption } from '../../constants/themes';
@@ -223,6 +224,9 @@ export const MoreHubView: React.FC<MoreHubViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Sao lưu & Khôi phục (JSON / CSV) */}
+      <BackupRestoreCard />
 
       {/* Quick Settings & Security Highlights */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">

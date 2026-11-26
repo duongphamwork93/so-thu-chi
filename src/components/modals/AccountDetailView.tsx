@@ -16,6 +16,13 @@ import { getBeneficiaries } from '../../constants/beneficiaries';
 import { Transaction } from '../../types/finance';
 import { EditTransactionModal } from './EditTransactionModal';
 import { AddTransactionModal } from './AddTransactionModal';
+import { usePlus } from '../../context/PlusContext';
+import {
+  getCardStatementSummary,
+  getTxStatementCycle,
+  isNearStatementDate,
+} from '../../utils/creditCardStatement';
+import { showToast } from '../../utils/toast';
 
 export interface AccountDetailTarget {
   kind: 'account' | 'card';
@@ -38,6 +45,7 @@ const DATE_RANGE_LABELS: Record<DateRangeKey, string> = {
 
 export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, onClose }) => {
   const { data, categoryMap } = useFinance();
+  const { plus, updatePlus } = usePlus();
 
   const [dateRange, setDateRange] = useState<DateRangeKey>('30days');
   const [showRangeMenu, setShowRangeMenu] = useState(false);
@@ -226,6 +234,26 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, on
     return { dayNum, dayLabel, monthYear };
   };
 
+  const cardStmt = card ? getCardStatementSummary(card, data.records, undefined, plus.stmtOverrides) : null;
+
+  const toggleStatementCycle = (tx: Transaction) => {
+    if (!cardStmt) return;
+    const current = getTxStatementCycle(tx, cardStmt.latestStatementDate, plus.stmtOverrides);
+    const nextCycle = current === 'current' ? 'next' : 'current';
+    const natural = tx.date <= cardStmt.latestStatementDate ? 'current' : 'next';
+    updatePlus(prev => {
+      const next = { ...prev.stmtOverrides };
+      if (nextCycle === natural) delete next[tx.id];
+      else next[tx.id] = nextCycle;
+      return { stmtOverrides: next };
+    });
+    showToast(
+      'info',
+      nextCycle === 'next' ? 'Đã chuyển sang Kỳ sao kê sau' : 'Đã chuyển vào Kỳ sao kê này',
+      `${formatVND(tx.amount)} · Số chốt sao kê và "Chi mới kỳ sau" đã được tính lại.`
+    );
+  };
+
   if (!target || typeof document === 'undefined' || !document.body) return null;
 
   return createPortal(
@@ -380,6 +408,24 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, on
             </div>
           </div>
 
+          {/* 2b. Đối soát kỳ sao kê của thẻ */}
+          {isCard && cardStmt && card && (
+            <div className="mx-3 sm:mx-0 mb-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs space-y-1.5">
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-500">Chốt sao kê {cardStmt.statementMonthLabel} ({cardStmt.statementDateShort}):</span>
+                <strong className="money-mask tabular-nums">{formatVND(cardStmt.statementBalance)}</strong>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-500">Chi mới kỳ sau = Dư nợ hiện tại − Số chốt còn nợ:</span>
+                <strong className="money-mask tabular-nums">{formatVND(cardStmt.postStatementSpending)}</strong>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Ngân hàng thường hạch toán trễ 1–3 ngày: chạm nhãn <strong>Kỳ này / Kỳ sau</strong> trên giao dịch sát ngày chốt để
+                chuyển kỳ.
+              </p>
+            </div>
+          )}
+
           {/* 3. Day-Grouped Transactions List */}
           {groupedByDate.length === 0 ? (
             <div className="m-4 p-10 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
@@ -459,11 +505,24 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, on
                         const runningAfter = afterBalanceMap.get(tx.id);
                         const ben = tx.beneficiary ? beneficiariesMap[tx.beneficiary] : null;
 
+                        const canShift =
+                          isCard && cardStmt && tx.type === 'out' && isNearStatementDate(tx.date, cardStmt.latestStatementDate);
+                        const cycle = canShift
+                          ? getTxStatementCycle(tx, cardStmt!.latestStatementDate, plus.stmtOverrides)
+                          : null;
+
                         return (
-                          <button
+                          <div
                             key={tx.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setEditingTx(tx)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setEditingTx(tx);
+                              }
+                            }}
                             className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer"
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -488,6 +547,23 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, on
                                     {tx.excludeFromReport ? ' · Không tính BC' : ''}
                                   </p>
                                 )}
+                                {cycle && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      toggleStatementCycle(tx);
+                                    }}
+                                    className={`mt-1 min-h-[30px] px-2.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 border cursor-pointer ${
+                                      cycle === 'current'
+                                        ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                                        : 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800'
+                                    }`}
+                                    title="Chạm để chuyển kỳ sao kê"
+                                  >
+                                    {cycle === 'current' ? 'Kỳ sao kê này' : 'Kỳ sao kê sau'} ⇄
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -507,7 +583,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({ target, on
                                 </p>
                               )}
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>

@@ -18,6 +18,9 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
+import { evaluateSpendNotices } from '../../utils/spendGuard';
+import { showToast } from '../../utils/toast';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatVND, getTodayDateString, parseVietnameseMoneyText } from '../../utils/formatters';
 import { resolveDefaultPaymentAccountId } from '../../utils/paymentMatcher';
@@ -66,6 +69,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
     allIncomeCategories,
     categoryMap,
   } = useFinance();
+  const { plus } = usePlus();
 
   const [stage, setStage] = useState<'idle' | 'listening' | 'processing' | 'review'>('idle');
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -641,7 +645,7 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
   const handleConfirmSave = () => {
     if (!parsedResult || parsedResult.amount <= 0) return;
 
-    addTransaction({
+    const newTx = {
       type: parsedResult.type,
       cat: parsedResult.category,
       amount: parsedResult.amount,
@@ -652,7 +656,16 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
       tripName: parsedResult.tripName?.trim() || undefined,
       counterparty: parsedResult.counterparty?.trim() || undefined,
       location: parsedResult.location?.trim() || undefined,
+    };
+    const notices = evaluateSpendNotices({
+      tx: newTx,
+      data,
+      plus,
+      categoryMap,
+      todayStr: getTodayDateString(),
     });
+    addTransaction(newTx);
+    notices.forEach(n => showToast(n.tone, n.title, n.message));
 
     // Remember newly mentioned trip/contact in settings automatically
     const curTrips = data.settings.savedTrips || [];

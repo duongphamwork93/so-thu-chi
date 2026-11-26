@@ -1,5 +1,73 @@
 import { CreditCard, Transaction } from '../types/finance';
 import { getTodayDateString } from './formatters';
+import { addDays } from './period';
+
+export type StatementOverrides = Record<string, 'current' | 'next'>;
+
+/** Số ngày quanh ngày chốt sao kê cho phép chuyển kỳ thủ công (ngân hàng hạch toán trễ 1–3 ngày). */
+export const STATEMENT_SHIFT_WINDOW_DAYS = 5;
+
+/** Giao dịch chi bằng thẻ có nằm sát ngày chốt (được phép chuyển kỳ) hay không. */
+export function isNearStatementDate(txDate: string, latestStatementDate: string): boolean {
+  if (!txDate) return false;
+  return (
+    txDate >= addDays(latestStatementDate, -STATEMENT_SHIFT_WINDOW_DAYS) &&
+    txDate <= addDays(latestStatementDate, STATEMENT_SHIFT_WINDOW_DAYS)
+  );
+}
+
+/** Kỳ sao kê thực tế của một giao dịch thẻ sau khi áp dụng chuyển kỳ thủ công. */
+export function getTxStatementCycle(
+  tx: Pick<Transaction, 'id' | 'date'>,
+  latestStatementDate: string,
+  overrides?: StatementOverrides
+): 'current' | 'next' {
+  const natural = tx.date <= latestStatementDate ? 'current' : 'next';
+  const ov = overrides?.[tx.id];
+  if (ov && isNearStatementDate(tx.date, latestStatementDate)) return ov;
+  return natural;
+}
+
+/**
+ * Tổng tiền dịch chuyển giữa kỳ này và kỳ sau do người dùng chuyển kỳ thủ công.
+ * Trả về số tiền cần CỘNG vào số chốt sao kê (âm nếu chuyển bớt sang kỳ sau).
+ */
+export function computeOverrideShift(
+  card: CreditCard,
+  records: Transaction[],
+  latestStatementDate: string,
+  overrides?: StatementOverrides
+): number {
+  if (!overrides) return 0;
+  let shift = 0;
+  for (const r of records) {
+    if (r.accountId !== card.id || r.type !== 'out' || !overrides[r.id]) continue;
+    if (!isNearStatementDate(r.date, latestStatementDate)) continue;
+    const natural = r.date <= latestStatementDate ? 'current' : 'next';
+    const ov = overrides[r.id];
+    if (ov === natural) continue;
+    shift += ov === 'current' ? r.amount : -r.amount;
+  }
+  return shift;
+}
+
+/** Tổng chi tiêu bằng thẻ trong kỳ sao kê đang chạy (sau ngày chốt gần nhất). */
+export function getCardCycleSpending(
+  card: CreditCard,
+  records: Transaction[],
+  overrides?: StatementOverrides,
+  todayStr?: string
+): number {
+  const today = todayStr || getTodayDateString();
+  const latest = getLatestStatementDate(card.statementDay, today);
+  let sum = 0;
+  for (const r of records) {
+    if (r.accountId !== card.id || r.type !== 'out' || !r.date || r.date > today) continue;
+    if (r.date < addDays(latest, -STATEMENT_SHIFT_WINDOW_DAYS) && r.date <= latest) continue;
+    if (getTxStatementCycle(r, latest, overrides) === 'next') sum += r.amount;
+  }
+  return sum;
+}
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -128,7 +196,8 @@ export interface CreditCardStatementSummary {
 export function getCardStatementSummary(
   card: CreditCard,
   records: Transaction[],
-  todayStr?: string
+  todayStr?: string,
+  overrides?: StatementOverrides
 ): CreditCardStatementSummary {
   const today = todayStr || getTodayDateString();
   const latestStatementDate = getLatestStatementDate(card.statementDay, today);
@@ -142,9 +211,13 @@ export function getCardStatementSummary(
   const isCurrentCycleRecorded =
     card.lastStatementDate === latestStatementDate && card.statementBalance !== undefined;
 
-  const statementBalance = isCurrentCycleRecorded
+  const baseStatementBalance = isCurrentCycleRecorded
     ? Math.max(0, Number(card.statementBalance) || 0)
     : computeStatementSnapshot(card, records, latestStatementDate, today);
+  const statementBalance = Math.max(
+    0,
+    baseStatementBalance + computeOverrideShift(card, records, latestStatementDate, overrides)
+  );
 
   const paidAmount = isCurrentCycleRecorded
     ? Math.max(0, Number(card.statementPaidAmount) || 0)

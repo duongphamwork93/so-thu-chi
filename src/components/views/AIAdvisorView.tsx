@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../constants/categories';
 import { calculateNetWorthBreakdown, formatVND, getTodayDateString } from '../../utils/formatters';
 import { resolveDefaultPaymentAccountId } from '../../utils/paymentMatcher';
@@ -25,6 +26,7 @@ import { ReceiptScannerPanel } from '../ReceiptScannerPanel';
 
 export const AIAdvisorView: React.FC = () => {
   const { data, currentMonth, setCurrentMonth, addTransaction, allExpenseCategories, allIncomeCategories } = useFinance();
+  const { isInPeriod } = usePlus();
 
   const beneficiariesList = React.useMemo(
     () => getBeneficiaries(data.settings.memberNames, data.settings.customMembers),
@@ -108,7 +110,7 @@ export const AIAdvisorView: React.FC = () => {
     setIsAnalyzing(true);
     setAdviceError(null);
 
-    const monthRecords = data.records.filter(r => r.date?.startsWith(currentMonth));
+    const monthRecords = data.records.filter(r => isInPeriod(r.date) && !r.excludeFromReport);
     const income = monthRecords.filter(r => r.type === 'in').reduce((s, r) => s + r.amount, 0);
     const expense = monthRecords.filter(r => r.type === 'out').reduce((s, r) => s + r.amount, 0);
     const byCategory: Record<string, number> = {};

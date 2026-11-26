@@ -17,11 +17,13 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { usePlus } from '../../context/PlusContext';
 import { CategoryIcon } from '../CategoryIcon';
 import { formatDateVietnamese, formatVND, formatVNDShort } from '../../utils/formatters';
 import { JarTargets, Transaction } from '../../types/finance';
 import { getBeneficiaries } from '../../constants/beneficiaries';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
+import { classifyJar } from '../../utils/jars';
 
 export type ReportMode = 'member' | 'category' | 'rule503020' | 'sixjars';
 
@@ -46,6 +48,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   initialType,
 }) => {
   const { data, currentMonth, shiftMonth, categoryMap, updateSettings } = useFinance();
+  const { isInPeriod, periodRange } = usePlus();
   const [reportMode, setReportMode] = useState<ReportMode>(initialMode || 'member');
   const [reportType, setReportType] = useState<'out' | 'in'>(initialType || 'out');
   const [expandedMemberKey, setExpandedMemberKey] = useState<string | null>(null);
@@ -101,10 +104,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Month transactions excluding records flagged "Không tính vào báo cáo"
   const monthTransactions = useMemo(() => {
-    return data.records.filter(
-      r => r.date && r.date.startsWith(currentMonth) && !r.excludeFromReport
-    );
-  }, [data.records, currentMonth]);
+    return data.records.filter(r => isInPeriod(r.date) && !r.excludeFromReport);
+  }, [data.records, isInPeriod]);
 
   const expenseTransactions = useMemo(
     () => monthTransactions.filter(r => r.type === 'out'),
@@ -386,43 +387,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     };
 
     expenseTransactions.forEach(tx => {
-      const cat = categoryMap[tx.cat];
-      const catNameLower = (cat?.name || '').toLowerCase();
-      const noteLower = (tx.note || '').toLowerCase();
-
-      let targetJar: keyof JarTargets = 'play';
-      if (
-        tx.cat === 'giao_duc' ||
-        tx.cat === 'hoc_hanh' ||
-        tx.cat === 'con_sach_vo' ||
-        catNameLower.includes('học') ||
-        catNameLower.includes('sách')
-      ) {
-        targetJar = 'educ';
-      } else if (
-        tx.cat === 'hieu_hi' ||
-        tx.cat === 'cuoi_xin' ||
-        tx.cat === 'tham_hoi' ||
-        tx.cat === 'ma_chay' ||
-        catNameLower.includes('tặng') ||
-        catNameLower.includes('từ thiện')
-      ) {
-        targetJar = 'give';
-      } else if (
-        noteLower.includes('đầu tư') ||
-        noteLower.includes('chứng khoán') ||
-        noteLower.includes('vàng') ||
-        catNameLower.includes('đầu tư')
-      ) {
-        targetJar = 'ffa';
-      } else if (tx.cat === 'tiet_kiem' || cat?.group === 'save') {
-        targetJar = 'lts';
-      } else if (cat?.group === 'need') {
-        targetJar = 'nec';
-      } else {
-        targetJar = 'play';
-      }
-
+      const targetJar: keyof JarTargets = classifyJar(tx, categoryMap);
       sums[targetJar] += tx.amount;
       lists[targetJar].push(tx);
     });
@@ -587,7 +552,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   }, [categoryStats, currentTotal]);
 
   const monthParts = currentMonth.split('-');
-  const monthDisplay = `Tháng ${parseInt(monthParts[1], 10)}/${monthParts[0]}`;
+  const monthDisplay = periodRange.label;
   const draftJarSum =
     draftJars.nec + draftJars.ffa + draftJars.educ + draftJars.play + draftJars.give + draftJars.lts;
 
