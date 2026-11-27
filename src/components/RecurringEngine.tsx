@@ -5,6 +5,7 @@ import { usePlus } from '../context/PlusContext';
 import { removeVietnameseAccents } from '../constants/categories';
 import { formatVND, getTodayDateString } from '../utils/formatters';
 import { showToast } from '../utils/toast';
+import { DEFAULT_JARS } from '../utils/jars';
 
 const findByName = <T extends { id: string; name: string }>(list: T[], kw: string) =>
   list.find(x => removeVietnameseAccents(x.name).includes(kw));
@@ -16,7 +17,7 @@ const findByName = <T extends { id: string; name: string }>(list: T[], kw: strin
  */
 export const RecurringEngine: React.FC = () => {
   const { user, authReady } = useAuth();
-  const { data, syncStatus, addRecurring, postRecurring } = useFinance();
+  const { data, syncStatus, addRecurring, postRecurring, updateSettings } = useFinance();
   const { plus, updatePlus } = usePlus();
   const lastRunDayRef = useRef<string>('');
   const postRef = useRef(postRecurring);
@@ -53,6 +54,39 @@ export const RecurringEngine: React.FC = () => {
     });
     updatePlus({ recurringSeeded: true });
   }, [ready, plus.recurringSeeded]);
+
+  // 1b) Kế hoạch tài chính gia đình — áp dụng MỘT LẦN lên dữ liệu hiện có
+  useEffect(() => {
+    if (!ready || plus.familyPlanApplied) return;
+    const todayStr = getTodayDateString();
+    const monthKey = todayStr.slice(0, 7);
+    updateSettings({ jarTargets: { ...DEFAULT_JARS } });
+    const tech =
+      data.accts.find(a => a.type !== 'invest' && removeVietnameseAccents(a.name).includes('tech')) ||
+      data.accts.find(a => a.type === 'bank') ||
+      data.accts[0];
+    const hasName = (kw: string) => data.recs.some(r => removeVietnameseAccents(r.name).includes(kw));
+    const fixed = [
+      { kw: 'hoc phi mau giao bun', name: 'Học phí mẫu giáo Bun', amount: 5_000_000, cat: 'giao_duc' },
+      { kw: 'lop can thiep bun', name: 'Lớp can thiệp Bun', amount: 2_400_000, cat: 'con_hoc_can_thiep' },
+    ];
+    fixed.forEach(f => {
+      if (hasName(f.kw)) return;
+      addRecurring({
+        type: 'out',
+        name: f.name,
+        amount: f.amount,
+        cat: f.cat,
+        cycle: 'monthly',
+        dayOfMonth: 10,
+        accountId: tech?.id,
+        autoRecord: true,
+        // Ngày 10 tháng này đã qua → tự ghi từ tháng sau (tránh trùng khoản đã ghi tay)
+        lastRecorded: recurringDueDate(10, monthKey) <= todayStr ? monthKey : undefined,
+      });
+    });
+    updatePlus({ monthlyIncome: 48_000_000, familyPlanApplied: true });
+  }, [ready, plus.familyPlanApplied]);
 
   // 2) Tự động ghi sổ
   useEffect(() => {

@@ -152,12 +152,12 @@ export function toFirestoreSettings(settings: AppSettings, ownerId: string, isCr
   const cleanJarTargets =
     settings.jarTargets !== undefined && settings.jarTargets
       ? {
-          nec: safeNum(settings.jarTargets.nec, 55),
-          ffa: safeNum(settings.jarTargets.ffa, 10),
-          educ: safeNum(settings.jarTargets.educ, 10),
-          play: safeNum(settings.jarTargets.play, 10),
-          give: safeNum(settings.jarTargets.give, 5),
-          lts: safeNum(settings.jarTargets.lts, 10),
+          nec: safeNum(settings.jarTargets.nec, 44),
+          ffa: safeNum(settings.jarTargets.ffa, 0),
+          educ: safeNum(settings.jarTargets.educ, 11),
+          play: safeNum(settings.jarTargets.play, 3),
+          give: safeNum(settings.jarTargets.give, 42),
+          lts: safeNum(settings.jarTargets.lts, 0),
         }
       : undefined;
 
@@ -247,12 +247,12 @@ export function fromFirestoreSettings(data: Record<string, any>): AppSettings {
     jarTargets:
       data.jarTargets && typeof data.jarTargets === 'object'
         ? {
-            nec: Number(data.jarTargets.nec ?? 55),
-            ffa: Number(data.jarTargets.ffa ?? 10),
-            educ: Number(data.jarTargets.educ ?? 10),
-            play: Number(data.jarTargets.play ?? 10),
-            give: Number(data.jarTargets.give ?? 5),
-            lts: Number(data.jarTargets.lts ?? 10),
+            nec: Number(data.jarTargets.nec ?? 44),
+            ffa: Number(data.jarTargets.ffa ?? 0),
+            educ: Number(data.jarTargets.educ ?? 11),
+            play: Number(data.jarTargets.play ?? 3),
+            give: Number(data.jarTargets.give ?? 42),
+            lts: Number(data.jarTargets.lts ?? 0),
           }
         : undefined,
   };

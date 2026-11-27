@@ -30,6 +30,7 @@ export function getDefaultPlus(): PlusData {
     buffer: { midIncomeFromDay: 10, midIncomeToDay: 12, startDay: 25, dailyEssential: 0 },
     loanSettled: {},
     savingsTargetPct: 51,
+    familyPlanApplied: false,
   };
 }
 
@@ -87,6 +88,7 @@ export function normalizePlus(raw: unknown): PlusData {
     },
     loanSettled: isObj(raw.loanSettled) ? { ...raw.loanSettled } : {},
     savingsTargetPct: Math.min(100, Math.max(0, num(raw.savingsTargetPct, 51))),
+    familyPlanApplied: Boolean(raw.familyPlanApplied),
   };
 }
 
