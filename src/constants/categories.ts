@@ -98,7 +98,7 @@ export const INCOME_CATEGORIES: CategoryInfo[] = [
   { key: 'thu_phu', name: 'Làm thêm, bán hàng', shortName: 'Làm thêm', color: '#2563EB', group: 'income', section: 'Thu nhập', iconName: 'Laptop' },
   { key: 'duoc_tang', name: 'Được cho / tặng, lì xì', shortName: 'Được tặng', color: '#E11D48', group: 'income', section: 'Thu nhập', iconName: 'Gift' },
   { key: 'di_vay', name: 'Đi vay', shortName: 'Đi vay', color: '#F59E0B', group: 'income', section: 'Thu nhập', iconName: 'Wallet' },
-  { key: 'thu_no', name: 'Thu nợ', shortName: 'Thu nợ', color: '#0D9488', group: 'income', section: 'Thu nhập', iconName: 'HandCoins' },
+  { key: 'thu_no', name: 'Thu nợ / Hoàn tiền mua hộ', shortName: 'Thu nợ', color: '#0D9488', group: 'income', section: 'Thu nhập', iconName: 'HandCoins' },
   { key: 'quy_nhom', name: 'Quỹ nhóm', shortName: 'Quỹ nhóm', color: '#3B82F6', group: 'income', section: 'Thu nhập', iconName: 'Users' },
   { key: 'bhxh', name: 'Trợ cấp BHXH, thai sản', shortName: 'BHXH', color: '#0891B2', group: 'income', section: 'Thu nhập', iconName: 'ShieldCheck' },
   { key: 'hoan_tien', name: 'Hoàn tiền / Cashback thẻ', shortName: 'Hoàn tiền', color: '#DB2777', group: 'income', section: 'Thu nhập', iconName: 'Gift' },

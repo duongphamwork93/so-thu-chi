@@ -57,6 +57,10 @@ export interface PlusData {
   categoryOverrides: Record<string, CategoryOverride>;
   /** Vùng đệm an toàn chờ kỳ thu nhập giữa tháng */
   buffer: IncomeBufferSettings;
+  /** Khoản cho vay / mua hộ đã thu hồi: txId khoản chi → txId khoản thu (hoặc 'manual') */
+  loanSettled: Record<string, string>;
+  /** Mục tiêu tiết kiệm hằng tháng (% thu nhập định mức) */
+  savingsTargetPct: number;
 }
 
 export interface IncomeBufferSettings {

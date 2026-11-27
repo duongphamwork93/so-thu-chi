@@ -233,7 +233,7 @@ interface FinanceContextType {
   addGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   updateGoal: (id: string, updates: Partial<SavingsGoal>) => void;
   deleteGoal: (id: string) => void;
-  contributeGoal: (goalId: string, amount: number, accountId?: string) => void;
+  contributeGoal: (goalId: string, amount: number, accountId?: string, note?: string) => void;
 
   // Recurring
   addRecurring: (rec: Omit<RecurringItem, 'id'>) => void;
@@ -2057,7 +2057,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const contributeGoal = (goalId: string, amount: number, accountId?: string) => {
+  const contributeGoal = (goalId: string, amount: number, accountId?: string, note?: string) => {
     if (amount <= 0) return;
     const prevSnap = dataRef.current;
     const goal = prevSnap.goals.find(g => g.id === goalId);
@@ -2072,7 +2072,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           cat: 'tiet_kiem',
           amount,
           date: getTodayDateString(),
-          note: `Góp mục tiêu: ${goal.title}`,
+          note: note || `Góp mục tiêu: ${goal.title}`,
           accountId,
           createdAt: Date.now(),
         }

@@ -26,6 +26,7 @@ import confetti from 'canvas-confetti';
 import { usePlus } from '../../context/PlusContext';
 import { CashbackModal } from '../modals/CashbackModal';
 import { SinkingFundsSection } from '../assets/SinkingFundsSection';
+import { PendingLoansCard } from '../assets/PendingLoansCard';
 import { useFinance } from '../../context/FinanceContext';
 import {
   calculateDepositAccrued,
@@ -231,6 +232,9 @@ export const AssetsView: React.FC<AssetsViewProps> = ({
           <span>{marketStatusMsg}</span>
         </div>
       )}
+
+      {/* Khoản mua hộ / cho vay chờ thu hồi */}
+      <PendingLoansCard />
 
       {/* 2. Sub Category Navigation Tabs */}
       <div className="flex gap-1.5 overflow-x-auto p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl no-scrollbar">

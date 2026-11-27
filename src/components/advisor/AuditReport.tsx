@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CalendarCheck, HandCoins, HeartPulse, Layers, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, HandCoins, HeartPulse, Layers, PiggyBank, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { AuditSnapshot } from '../../utils/financialAudit';
 import { formatVND, formatVNDShort } from '../../utils/formatters';
 
@@ -10,6 +10,7 @@ export interface AuditAIResult {
   liquidity?: { level?: string; verdict?: string };
   jars?: { verdict?: string; items?: Array<{ code: string; comment: string }> };
   issues?: { loansComment?: string; leaksComment?: string; otherFindings?: string[] };
+  savingsGate?: { progress?: string; gapAmount?: number; causes?: string[]; dailyCap?: number; freeze?: string[] };
   actionPlan?: Array<{ title: string; detail: string; amount?: number; deadline?: string }>;
 }
 
@@ -245,8 +246,82 @@ export const AuditReport: React.FC<{ snap: AuditSnapshot; ai: AuditAIResult | nu
         )}
       </Card>
 
-      {/* 4. Kế hoạch 7 ngày */}
-      <Card step={4} title="Kế Hoạch Hành Động 7 Ngày Tới" icon={<CalendarCheck size={16} className="text-violet-600 shrink-0" />}>
+      {/* 4. Gác cổng mục tiêu tiết kiệm */}
+      {snap.savingsGoal && (
+        <Card step={4} title="Gác Cổng Mục Tiêu Tiết Kiệm" icon={<PiggyBank size={16} className="text-indigo-600 shrink-0" />}>
+          {(() => {
+            const g = snap.savingsGoal;
+            const gap = typeof ai?.savingsGate?.gapAmount === 'number' ? ai.savingsGate.gapAmount : g.projectedGap;
+            const okGoal = gap <= 0;
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                    <span className="text-slate-500 block">Mục tiêu tháng ({g.targetPct}%)</span>
+                    <strong className="money-mask tabular-nums text-slate-900 dark:text-white">{formatVND(g.targetAmount)}</strong>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                    <span className="text-slate-500 block">Đã trích (LTS + FFA)</span>
+                    <strong className="money-mask tabular-nums text-slate-900 dark:text-white">{formatVND(g.alreadySaved)}</strong>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                    <span className="text-slate-500 block">Dự kiến trích được</span>
+                    <strong className="money-mask tabular-nums text-slate-900 dark:text-white">{formatVND(Math.max(0, g.projectedSavable))}</strong>
+                  </div>
+                  <div className={`p-2.5 rounded-2xl ${okGoal ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-rose-50 dark:bg-rose-950/40'}`}>
+                    <span className="text-slate-500 block">{okGoal ? 'Kết luận' : 'Dự kiến hụt'}</span>
+                    <strong className={`money-mask tabular-nums ${okGoal ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {okGoal ? 'Đủ mục tiêu' : formatVND(gap)}
+                    </strong>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Dự kiến theo tốc độ chi hiện tại: tiêu dùng cả kỳ ≈{' '}
+                  <span className="money-mask">{formatVND(g.projectedConsumption)}</span>. Muốn vẫn đủ mục tiêu: chi tối đa{' '}
+                  <strong className="money-mask text-slate-700 dark:text-slate-200">{formatVND(g.dailyCapToHitTarget)}/ngày</strong> trong{' '}
+                  {g.daysLeft} ngày còn lại.
+                </p>
+                {ai?.savingsGate ? (
+                  <div className="space-y-2 text-xs sm:text-sm">
+                    <p className="p-3 rounded-2xl bg-violet-50/70 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900/60 text-slate-700 dark:text-slate-200">
+                      <strong className="text-violet-700 dark:text-violet-300">1. Tiến độ: </strong>
+                      {ai.savingsGate.progress}
+                    </p>
+                    {ai.savingsGate.causes && ai.savingsGate.causes.length > 0 && (
+                      <div className="p-3 rounded-2xl bg-violet-50/70 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900/60">
+                        <strong className="text-violet-700 dark:text-violet-300">2. Nguyên nhân kéo lùi tiết kiệm:</strong>
+                        <ul className="list-disc pl-5 mt-1 space-y-0.5 text-slate-700 dark:text-slate-200">
+                          {ai.savingsGate.causes.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60">
+                      <strong className="text-rose-700 dark:text-rose-300">3. Mệnh lệnh cắt giảm đến cuối kỳ:</strong>
+                      {typeof ai.savingsGate.dailyCap === 'number' && ai.savingsGate.dailyCap > 0 && (
+                        <p className="mt-1 text-slate-700 dark:text-slate-200">
+                          Chi tối đa <strong className="money-mask">{formatVND(ai.savingsGate.dailyCap)}/ngày</strong>
+                        </p>
+                      )}
+                      {ai.savingsGate.freeze && ai.savingsGate.freeze.length > 0 && (
+                        <p className="mt-1 text-slate-700 dark:text-slate-200">
+                          Đóng băng ngay: <strong>{ai.savingsGate.freeze.join(' · ')}</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <AiNote text={undefined} pending={isLoading} />
+                )}
+              </>
+            );
+          })()}
+        </Card>
+      )}
+
+      {/* 5. Kế hoạch 7 ngày */}
+      <Card step={5} title="Kế Hoạch Hành Động 7 Ngày Tới" icon={<CalendarCheck size={16} className="text-violet-600 shrink-0" />}>
         {ai?.actionPlan && ai.actionPlan.length > 0 ? (
           <ol className="space-y-2">
             {ai.actionPlan.slice(0, 3).map((a, i) => (

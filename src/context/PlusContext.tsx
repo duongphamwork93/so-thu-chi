@@ -28,6 +28,8 @@ export function getDefaultPlus(): PlusData {
     recurringSeeded: false,
     categoryOverrides: {},
     buffer: { midIncomeFromDay: 10, midIncomeToDay: 12, startDay: 25, dailyEssential: 0 },
+    loanSettled: {},
+    savingsTargetPct: 51,
   };
 }
 
@@ -83,6 +85,8 @@ export function normalizePlus(raw: unknown): PlusData {
       startDay: Math.min(31, Math.max(1, Math.round(num(isObj(raw.buffer) ? raw.buffer.startDay : 25, 25)))),
       dailyEssential: Math.max(0, num(isObj(raw.buffer) ? raw.buffer.dailyEssential : 0, 0)),
     },
+    loanSettled: isObj(raw.loanSettled) ? { ...raw.loanSettled } : {},
+    savingsTargetPct: Math.min(100, Math.max(0, num(raw.savingsTargetPct, 51))),
   };
 }
 

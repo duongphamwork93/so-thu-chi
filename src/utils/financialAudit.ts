@@ -6,6 +6,7 @@ import { PeriodRange, addDays, diffDays } from './period';
 import { getCardStatementSummary } from './creditCardStatement';
 import { calculateDepositAccrued } from './formatters';
 import { computeIncomeBuffer, IncomeBufferStatus } from './incomeBuffer';
+import { getPendingLoans } from './loans';
 
 /**
  * Ảnh chụp số liệu cứng cho "Kiểm toán Tài chính Cá nhân".
@@ -40,6 +41,18 @@ export interface AuditSnapshot {
   pendingLoans: Array<{ title: string; amount: number; date: string; daysAgo: number; source: 'tx' | 'debt' }>;
   leaks: Array<{ label: string; count: number; total: number; avg: number }>;
   buffer: IncomeBufferStatus;
+  savingsGoal: {
+    targetPct: number;
+    targetAmount: number; // tiết kiệm mục tiêu tháng = thu nhập định mức × %
+    consumptionSpent: number; // NEC + PLAY + EDUC + GIVE đã chi
+    projectedConsumption: number; // nếu giữ tốc độ chi hiện tại đến hết kỳ
+    projectedSavable: number; // thu nhập định mức − chi tiêu dự kiến
+    projectedGap: number; // > 0 = dự kiến hụt mục tiêu
+    alreadySaved: number; // LTS + FFA đã trích trong kỳ
+    pendingLoansTotal: number;
+    dailyCapToHitTarget: number; // chi tối đa mỗi ngày đến hết kỳ để vẫn đủ mục tiêu
+    daysLeft: number;
+  };
   totals: { income: number; expense: number; neutral: number };
   transactions: Array<{
     date: string;
@@ -119,26 +132,14 @@ export function buildAuditSnapshot(params: {
   });
 
   // 4) Khoản treo: cho vay / mua hộ chưa thấy thu nợ
-  const since = addDays(todayStr, -120);
-  const repayments = data.records.filter(t => t.type === 'in' && (t.cat === 'thu_no' || t.cat === 'thu_khac'));
   const norm = (s?: string) => removeVietnameseAccents(s || '').trim();
-  const pendingLoans: AuditSnapshot['pendingLoans'] = data.records
-    .filter(t => t.type === 'out' && t.cat === 'cho_vay' && t.date >= since)
-    .filter(t => {
-      const who = norm(t.counterparty);
-      return !repayments.some(
-        r =>
-          r.date >= t.date &&
-          ((who && (norm(r.counterparty) === who || norm(r.note).includes(who))) || Math.abs(r.amount - t.amount) < 1000)
-      );
-    })
-    .map(t => ({
-      title: [t.note, t.counterparty].filter(Boolean).join(' · ') || 'Cho vay / Mua hộ',
-      amount: t.amount,
-      date: t.date,
-      daysAgo: diffDays(t.date, todayStr),
-      source: 'tx' as const,
-    }));
+  const pendingLoans: AuditSnapshot['pendingLoans'] = getPendingLoans(data, plus, todayStr).map(l => ({
+    title: [l.person, l.item].filter(Boolean).join(' · '),
+    amount: l.amount,
+    date: l.date,
+    daysAgo: l.daysAgo,
+    source: 'tx' as const,
+  }));
   data.debts
     .filter(d => d.dir === 'lend' && !d.closed && d.amount - (d.paidAmount || 0) > 0)
     .forEach(d =>
@@ -222,6 +223,31 @@ export function buildAuditSnapshot(params: {
     pendingLoans,
     leaks,
     buffer: computeIncomeBuffer({ data, plus, categoryMap, todayStr }),
+    savingsGoal: (() => {
+      const consumptionKeys = ['nec', 'play', 'educ', 'give'];
+      const consumptionSpent = jars.filter(j => consumptionKeys.includes(j.key)).reduce((s, j) => s + j.spent, 0);
+      const alreadySaved = jars.filter(j => j.key === 'lts' || j.key === 'ffa').reduce((s, j) => s + j.spent, 0);
+      const elapsedDays = Math.max(1, Math.min(range.totalDays, diffDays(range.start, todayStr) + 1));
+      const daysLeft = Math.max(1, diffDays(todayStr, range.end) + 1);
+      const projectedConsumption = Math.round((consumptionSpent / elapsedDays) * range.totalDays);
+      const targetAmount = Math.round((plus.monthlyIncome * plus.savingsTargetPct) / 100);
+      const projectedSavable = plus.monthlyIncome - projectedConsumption;
+      return {
+        targetPct: plus.savingsTargetPct,
+        targetAmount,
+        consumptionSpent,
+        projectedConsumption,
+        projectedSavable,
+        projectedGap: Math.max(0, targetAmount - projectedSavable),
+        alreadySaved,
+        pendingLoansTotal: pendingLoans.reduce((s, l) => s + l.amount, 0),
+        dailyCapToHitTarget: Math.max(
+          0,
+          Math.floor((plus.monthlyIncome - targetAmount - consumptionSpent) / daysLeft / 1000) * 1000
+        ),
+        daysLeft,
+      };
+    })(),
     totals: { income, expense, neutral },
     transactions,
   };

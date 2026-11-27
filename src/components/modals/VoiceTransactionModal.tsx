@@ -28,6 +28,7 @@ import { encodeFloat32ChunksToWav } from '../../utils/audioWavRecorder';
 import { canonicalCategoryKey } from '../../constants/categories';
 import { autoClassifyTransaction } from '../../utils/autoClassify';
 import { CategorySelectDropdown } from '../CategorySelectDropdown';
+import { BudgetGuardrail } from '../BudgetGuardrail';
 import { BeneficiaryKey, TransactionType } from '../../types/finance';
 
 export interface ParsedVoiceTransaction {
@@ -1033,6 +1034,12 @@ export const VoiceTransactionModal: React.FC<VoiceTransactionModalProps> = ({
                       type={parsedResult.type}
                       value={resolveValidVoiceCategory(parsedResult.category, parsedResult.type)}
                       onChange={val => setParsedResult(prev => (prev ? { ...prev, category: val } : null))}
+                    />
+                    <BudgetGuardrail
+                      type={parsedResult.type}
+                      cat={resolveValidVoiceCategory(parsedResult.category, parsedResult.type)}
+                      amount={parsedResult.amount}
+                      date={parsedResult.date}
                     />
                   </div>
                 </div>
