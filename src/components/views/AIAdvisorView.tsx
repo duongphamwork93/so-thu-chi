@@ -23,10 +23,16 @@ import { BeneficiaryKey } from '../../types/finance';
 import { getBeneficiaries } from '../../constants/beneficiaries';
 import { CategoryIcon } from '../CategoryIcon';
 import { ReceiptScannerPanel } from '../ReceiptScannerPanel';
+import { AuditReport } from '../advisor/AuditReport';
+import { buildAuditSnapshot } from '../../utils/financialAudit';
 
 export const AIAdvisorView: React.FC = () => {
-  const { data, currentMonth, setCurrentMonth, addTransaction, allExpenseCategories, allIncomeCategories } = useFinance();
-  const { isInPeriod } = usePlus();
+  const { data, currentMonth, setCurrentMonth, addTransaction, allExpenseCategories, allIncomeCategories, categoryMap } = useFinance();
+  const { plus, periodRange } = usePlus();
+  const auditSnapshot = React.useMemo(
+    () => buildAuditSnapshot({ data, plus, categoryMap, range: periodRange, todayStr: getTodayDateString() }),
+    [data, plus, categoryMap, periodRange]
+  );
 
   const beneficiariesList = React.useMemo(
     () => getBeneficiaries(data.settings.memberNames, data.settings.customMembers),
@@ -69,30 +75,11 @@ export const AIAdvisorView: React.FC = () => {
     setIsAnalyzing(true);
     setAdviceError(null);
 
-    const monthRecords = data.records.filter(r => isInPeriod(r.date) && !r.excludeFromReport);
-    const income = monthRecords.filter(r => r.type === 'in').reduce((s, r) => s + r.amount, 0);
-    const expense = monthRecords.filter(r => r.type === 'out').reduce((s, r) => s + r.amount, 0);
-    const byCategory: Record<string, number> = {};
-    monthRecords.filter(r => r.type === 'out').forEach(r => {
-      byCategory[r.cat] = (byCategory[r.cat] || 0) + r.amount;
-    });
-
-    const nw = calculateNetWorthBreakdown(data);
-
     try {
       const res = await fetch('/api/gemini/advisor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          month: currentMonth,
-          income,
-          expense,
-          budget: data.settings.budget,
-          byCategory,
-          netWorth: nw.netWorth,
-          debts: nw.totalLiabilities,
-          savings: nw.depositsTotal + nw.investmentsTotal,
-        }),
+        body: JSON.stringify({ audit: auditSnapshot }),
       });
 
       const json = await res.json();
@@ -255,7 +242,7 @@ export const AIAdvisorView: React.FC = () => {
           }`}
         >
           <Sparkles size={16} className="shrink-0" />
-          <span className="leading-tight">Phân Tích 50/30/20</span>
+          <span className="leading-tight">Cố Vấn 6 Hũ & Dòng Tiền</span>
         </button>
         <button
           type="button"
@@ -276,101 +263,37 @@ export const AIAdvisorView: React.FC = () => {
         <ReceiptScannerPanel onSwitchToQuickText={() => setSubTab('quick')} />
       )}
 
-      {/* 4. SUBTAB 2: FINANCIAL ADVISOR 50/30/20 */}
+      {/* 4. SUBTAB 2: CỐ VẤN 6 HŨ & DÒNG TIỀN — Báo cáo kiểm toán tài chính cá nhân */}
       {subTab === 'advisor' && (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Phân Tích Sức Khỏe Tài Chính Tháng
-                </h3>
-                <p className="text-xs text-slate-400">
-                  AI đánh giá toàn diện thu, chi, nợ và đưa ra khuyến nghị thực tế.
+        <div className="space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Kiểm Toán Tài Chính Cá Nhân</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {auditSnapshot.period.label} ({periodRange.rangeLabel}) · Số liệu tính sẵn từ sổ, AI nhận xét theo 6 Hũ & dòng tiền thực tế.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleGenerateAdvice}
                 disabled={isAnalyzing}
-                className="min-h-[44px] px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-sm hover:from-violet-700 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 transition-all"
+                className="min-h-[46px] px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-bold rounded-2xl shadow-sm hover:from-violet-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95 transition-all"
               >
                 <RefreshCw size={15} className={isAnalyzing ? 'animate-spin' : ''} />
-                <span>{isAnalyzing ? 'Đang phân tích...' : 'Bắt đầu đánh giá'}</span>
+                <span>{isAnalyzing ? 'Đang kiểm toán...' : adviceResult ? 'Kiểm toán lại' : 'Bắt đầu kiểm toán'}</span>
               </button>
             </div>
 
             {adviceError && (
-              <div className="p-3 rounded-2xl bg-rose-50 text-rose-600 text-xs flex items-center gap-2">
-                <AlertCircle size={15} />
-                <span>{adviceError}</span>
+              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{adviceError} — các số liệu bên dưới vẫn được app tự tính chính xác.</span>
               </div>
             )}
           </div>
 
-          {/* Advice Output */}
-          {adviceResult && (
-            <div className="space-y-4 animate-in fade-in">
-              {/* Score card */}
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between gap-4">
-                <div>
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Điểm sức khỏe tài chính
-                  </span>
-                  <h4 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {adviceResult.healthStatus}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                    {adviceResult.summary}
-                  </p>
-                </div>
-                <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border-4 border-emerald-500 flex items-center justify-center font-black text-xl text-emerald-600 dark:text-emerald-400 shrink-0">
-                  {adviceResult.financialHealthScore}
-                </div>
-              </div>
-
-              {/* 50/30/20 Assessment */}
-              {adviceResult.rule503020 && (
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Đánh giá quy tắc 50/30/20
-                  </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {adviceResult.rule503020.comment}
-                  </p>
-                </div>
-              )}
-
-              {/* Action recommendations */}
-              {adviceResult.actionSteps && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
-                    3 Lời khuyên hành động cụ thể
-                  </span>
-                  <div className="space-y-2">
-                    {adviceResult.actionSteps.map((step: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-start gap-3"
-                      >
-                        <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
-                          {idx + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                            {step.title}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {step.detail}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <AuditReport snap={auditSnapshot} ai={adviceResult} isLoading={isAnalyzing} />
         </div>
       )}
 
