@@ -108,6 +108,27 @@ export const AuditReport: React.FC<{ snap: AuditSnapshot; ai: AuditAIResult | nu
             </ul>
           )}
         </div>
+        {snap.buffer?.active && (
+          <div
+            className={`p-3 rounded-2xl border text-xs ${
+              snap.buffer.shortfall > 0
+                ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+            }`}
+          >
+            <p className="font-bold">
+              Vùng đệm chờ lương giữa tháng (đến {snap.buffer.bufferEnd.slice(8, 10)}/{snap.buffer.bufferEnd.slice(5, 7)}):{' '}
+              {snap.buffer.shortfall > 0 ? (
+                <span className="money-mask">thiếu {formatVND(snap.buffer.shortfall)}</span>
+              ) : (
+                <span className="money-mask">đủ, dư {formatVND(snap.buffer.surplus)}</span>
+              )}
+            </p>
+            <p className="text-[11px] opacity-90 money-mask">
+              {snap.buffer.accountName} có {formatVND(snap.buffer.accountBalance)} / cần {formatVND(snap.buffer.required)}
+            </p>
+          </div>
+        )}
         <AiNote text={ai?.liquidity?.verdict} pending={isLoading} />
       </Card>
 

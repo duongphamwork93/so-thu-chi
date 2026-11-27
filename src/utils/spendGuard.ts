@@ -6,6 +6,7 @@ import { getPeriodMonthForDate, getPeriodRange } from './period';
 import { getCardCycleSpending } from './creditCardStatement';
 import { formatVND } from './formatters';
 import { ToastTone } from './toast';
+import { computeIncomeBuffer } from './incomeBuffer';
 
 export interface SpendNotice {
   tone: ToastTone;
@@ -93,6 +94,19 @@ export function evaluateSpendNotices(params: {
           message: `Bạn còn ${formatVND(selfLimit - after)} đến kỳ sao kê sau.`,
         });
       }
+    }
+  }
+
+  // 3) Chi từ ví giữ vùng đệm khi đang chờ thu nhập giữa tháng
+  const buffer = computeIncomeBuffer({ data, plus, categoryMap, todayStr });
+  if (buffer.active && tx.accountId && tx.accountId === buffer.accountId) {
+    const afterBalance = buffer.accountBalance - tx.amount;
+    if (afterBalance < buffer.required) {
+      notices.push({
+        tone: 'danger',
+        title: `Lẹm vùng đệm ${formatVND(buffer.required - afterBalance)}!`,
+        message: `${buffer.accountName} cần giữ ${formatVND(buffer.required)} đến hết ${buffer.bufferEnd.slice(8, 10)}/${buffer.bufferEnd.slice(5, 7)} phòng khi thu nhập giữa tháng về chậm.`,
+      });
     }
   }
 

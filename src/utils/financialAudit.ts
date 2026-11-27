@@ -5,6 +5,7 @@ import { classifyJar, computeJarStatuses, DEFAULT_JARS, JAR_META, JarStatus } fr
 import { PeriodRange, addDays, diffDays } from './period';
 import { getCardStatementSummary } from './creditCardStatement';
 import { calculateDepositAccrued } from './formatters';
+import { computeIncomeBuffer, IncomeBufferStatus } from './incomeBuffer';
 
 /**
  * Ảnh chụp số liệu cứng cho "Kiểm toán Tài chính Cá nhân".
@@ -38,6 +39,7 @@ export interface AuditSnapshot {
   };
   pendingLoans: Array<{ title: string; amount: number; date: string; daysAgo: number; source: 'tx' | 'debt' }>;
   leaks: Array<{ label: string; count: number; total: number; avg: number }>;
+  buffer: IncomeBufferStatus;
   totals: { income: number; expense: number; neutral: number };
   transactions: Array<{
     date: string;
@@ -219,6 +221,7 @@ export function buildAuditSnapshot(params: {
     savings: { deposits, goals },
     pendingLoans,
     leaks,
+    buffer: computeIncomeBuffer({ data, plus, categoryMap, todayStr }),
     totals: { income, expense, neutral },
     transactions,
   };

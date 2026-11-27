@@ -27,6 +27,7 @@ export function getDefaultPlus(): PlusData {
     dismissedAutoTx: {},
     recurringSeeded: false,
     categoryOverrides: {},
+    buffer: { midIncomeFromDay: 10, midIncomeToDay: 12, startDay: 25, dailyEssential: 0 },
   };
 }
 
@@ -75,6 +76,13 @@ export function normalizePlus(raw: unknown): PlusData {
     dismissedAutoTx: isObj(raw.dismissedAutoTx) ? { ...raw.dismissedAutoTx } : {},
     recurringSeeded: Boolean(raw.recurringSeeded),
     categoryOverrides: isObj(raw.categoryOverrides) ? { ...raw.categoryOverrides } : {},
+    buffer: {
+      accountId: isObj(raw.buffer) && typeof raw.buffer.accountId === 'string' ? raw.buffer.accountId : undefined,
+      midIncomeFromDay: Math.min(28, Math.max(1, Math.round(num(isObj(raw.buffer) ? raw.buffer.midIncomeFromDay : 10, 10)))),
+      midIncomeToDay: Math.min(28, Math.max(1, Math.round(num(isObj(raw.buffer) ? raw.buffer.midIncomeToDay : 12, 12)))),
+      startDay: Math.min(31, Math.max(1, Math.round(num(isObj(raw.buffer) ? raw.buffer.startDay : 25, 25)))),
+      dailyEssential: Math.max(0, num(isObj(raw.buffer) ? raw.buffer.dailyEssential : 0, 0)),
+    },
   };
 }
 
