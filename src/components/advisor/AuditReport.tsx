@@ -257,11 +257,11 @@ export const AuditReport: React.FC<{ snap: AuditSnapshot; ai: AuditAIResult | nu
               <>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-slate-500 block">Mục tiêu tháng ({g.targetPct}%)</span>
+                    <span className="text-slate-500 block">Mục tiêu LTS ({g.targetPct}%)</span>
                     <strong className="money-mask tabular-nums text-slate-900 dark:text-white">{formatVND(g.targetAmount)}</strong>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-slate-500 block">Đã trích (LTS + FFA)</span>
+                    <span className="text-slate-500 block">Đã trích vào LTS</span>
                     <strong className="money-mask tabular-nums text-slate-900 dark:text-white">{formatVND(g.alreadySaved)}</strong>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">

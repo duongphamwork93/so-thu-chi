@@ -31,6 +31,7 @@ export function getDefaultPlus(): PlusData {
     loanSettled: {},
     savingsTargetPct: 51,
     familyPlanApplied: false,
+    familyPlanV2Applied: false,
   };
 }
 
@@ -89,6 +90,7 @@ export function normalizePlus(raw: unknown): PlusData {
     loanSettled: isObj(raw.loanSettled) ? { ...raw.loanSettled } : {},
     savingsTargetPct: Math.min(100, Math.max(0, num(raw.savingsTargetPct, 51))),
     familyPlanApplied: Boolean(raw.familyPlanApplied),
+    familyPlanV2Applied: Boolean(raw.familyPlanV2Applied),
   };
 }
 
