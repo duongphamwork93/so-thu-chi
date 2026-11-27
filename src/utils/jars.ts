@@ -6,11 +6,11 @@ export type JarKey = keyof JarTargets;
 
 export const DEFAULT_JARS: JarTargets = {
   nec: 44,
-  ffa: 0,
+  lts: 37,
   educ: 11,
+  give: 5,
   play: 3,
-  give: 42,
-  lts: 0,
+  ffa: 0,
 };
 
 export const JAR_META: Record<JarKey, { code: string; label: string; desc: string; color: string }> = {
@@ -18,8 +18,8 @@ export const JAR_META: Record<JarKey, { code: string; label: string; desc: strin
   ffa: { code: 'FFA', label: 'Tự do tài chính', desc: 'Mua vàng tích trữ, đầu tư, chứng chỉ quỹ', color: '#0D9488' },
   educ: { code: 'EDUC', label: 'Giáo dục', desc: 'Học phí, sách vở, khóa học', color: '#0891B2' },
   play: { code: 'PLAY', label: 'Hưởng thụ', desc: 'Cà phê, giải trí, du lịch, mua sắm', color: '#F59E0B' },
-  give: { code: 'GIVE', label: 'Cho đi', desc: 'Quà tặng, hiếu hỉ, thiện nguyện', color: '#EC4899' },
-  lts: { code: 'LTS', label: 'Tiết kiệm dài hạn', desc: 'Quỹ dự phòng, mua nhà/xe', color: '#4F46E5' },
+  give: { code: 'GIVE', label: 'Cho đi', desc: 'Quà tặng, thăm hỏi, hiếu hỉ', color: '#EC4899' },
+  lts: { code: 'LTS', label: 'Tiết kiệm dài hạn', desc: 'Quỹ Tết, quỹ dự phòng, tích luỹ mua nhà/xe', color: '#4F46E5' },
 };
 
 export const JAR_ORDER: JarKey[] = ['nec', 'play', 'educ', 'give', 'ffa', 'lts'];

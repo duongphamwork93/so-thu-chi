@@ -85,8 +85,16 @@ export const RecurringEngine: React.FC = () => {
         lastRecorded: recurringDueDate(10, monthKey) <= todayStr ? monthKey : undefined,
       });
     });
-    updatePlus({ monthlyIncome: 48_000_000, familyPlanApplied: true });
+    // Lần đầu: áp dụng luôn bộ tỷ lệ mới nhất → đánh dấu cả V2 để không áp lại
+    updatePlus({ monthlyIncome: 48_000_000, familyPlanApplied: true, familyPlanV2Applied: true });
   }, [ready, plus.familyPlanApplied]);
+
+  // 1c) Tách GIVE / LTS (44/37/11/5/3/0) — áp dụng MỘT LẦN lên dữ liệu hiện có
+  useEffect(() => {
+    if (!ready || !plus.familyPlanApplied || plus.familyPlanV2Applied) return;
+    updateSettings({ jarTargets: { ...DEFAULT_JARS } });
+    updatePlus({ monthlyIncome: 48_000_000, familyPlanV2Applied: true });
+  }, [ready, plus.familyPlanApplied, plus.familyPlanV2Applied]);
 
   // 2) Tự động ghi sổ
   useEffect(() => {

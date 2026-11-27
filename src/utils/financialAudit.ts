@@ -226,14 +226,17 @@ export function buildAuditSnapshot(params: {
     savingsGoal: (() => {
       const consumptionKeys = ['nec', 'play', 'educ', 'give'];
       const consumptionSpent = jars.filter(j => consumptionKeys.includes(j.key)).reduce((s, j) => s + j.spent, 0);
-      const alreadySaved = jars.filter(j => j.key === 'lts' || j.key === 'ffa').reduce((s, j) => s + j.spent, 0);
+      // Mục tiêu tiết kiệm hằng tháng = ngân sách hũ LTS (Quỹ Tết & tích luỹ)
+      const lts = jars.find(j => j.key === 'lts');
+      const alreadySaved = lts?.spent || 0;
       const elapsedDays = Math.max(1, Math.min(range.totalDays, diffDays(range.start, todayStr) + 1));
       const daysLeft = Math.max(1, diffDays(todayStr, range.end) + 1);
       const projectedConsumption = Math.round((consumptionSpent / elapsedDays) * range.totalDays);
-      const targetAmount = Math.round((plus.monthlyIncome * plus.savingsTargetPct) / 100);
+      const targetPct = lts?.targetPct ?? 0;
+      const targetAmount = lts?.budget ?? Math.round((plus.monthlyIncome * targetPct) / 100);
       const projectedSavable = plus.monthlyIncome - projectedConsumption;
       return {
-        targetPct: plus.savingsTargetPct,
+        targetPct,
         targetAmount,
         consumptionSpent,
         projectedConsumption,

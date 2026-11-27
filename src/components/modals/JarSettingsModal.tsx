@@ -21,14 +21,12 @@ export const JarSettingsModal: React.FC<JarSettingsModalProps> = ({ isOpen, onCl
   const [incomeStr, setIncomeStr] = useState('');
   const [draft, setDraft] = useState<JarTargets>(DEFAULT_JARS);
   const [payrollDay, setPayrollDay] = useState('30');
-  const [savingsPct, setSavingsPct] = useState('51');
 
   useEffect(() => {
     if (!isOpen) return;
     setIncomeStr(formatCurrencyInput(plus.monthlyIncome || DEFAULT_MONTHLY_INCOME));
     setDraft(data.settings.jarTargets || DEFAULT_JARS);
     setPayrollDay(String(plus.payrollStartDay || 30));
-    setSavingsPct(String(plus.savingsTargetPct ?? 51));
   }, [isOpen]);
 
   const income = parseCurrencyInput(incomeStr);
@@ -41,7 +39,6 @@ export const JarSettingsModal: React.FC<JarSettingsModalProps> = ({ isOpen, onCl
     updatePlus({
       monthlyIncome: income,
       payrollStartDay: day,
-      savingsTargetPct: Math.min(100, Math.max(0, Number(savingsPct) || 0)),
     });
     const prev = data.settings.jarTargets || DEFAULT_JARS;
     if (JAR_ORDER.some(k => prev[k] !== draft[k]) || !data.settings.jarTargets) {
@@ -132,24 +129,10 @@ export const JarSettingsModal: React.FC<JarSettingsModalProps> = ({ isOpen, onCl
         })}
       </div>
 
-      <div>
-        <label className={labelClass}>Mục tiêu tiết kiệm mỗi tháng (% thu nhập định mức)</label>
-        <div className="relative">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={100}
-            value={savingsPct}
-            onChange={e => setSavingsPct(e.target.value)}
-            className={inputClass + ' pr-8'}
-          />
-          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
-        </div>
-        <p className="money-mask text-[11px] text-slate-400 mt-1">
-          = {formatVND(Math.round((income * (Number(savingsPct) || 0)) / 100))}/tháng đổ vào Quỹ mục tiêu / sổ tiết kiệm — Cố vấn AI dùng để gác cổng.
-        </p>
-      </div>
+      <p className="money-mask text-[11px] text-slate-500 -mt-1">
+        Mục tiêu tiết kiệm hằng tháng = hũ <strong>LTS</strong> ({draft.lts || 0}% ={' '}
+        {formatVND(Math.round((income * (draft.lts || 0)) / 100))}) — Cố vấn AI dùng để gác cổng tiết kiệm.
+      </p>
 
       <div>
         <label className={labelClass}>Ngày bắt đầu kỳ lương</label>

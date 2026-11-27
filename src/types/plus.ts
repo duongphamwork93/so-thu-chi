@@ -63,6 +63,8 @@ export interface PlusData {
   savingsTargetPct: number;
   /** Đã áp dụng kế hoạch tài chính gia đình (tỷ lệ 6 hũ 44/42/11/3 + học phí Bun) */
   familyPlanApplied: boolean;
+  /** Đã áp dụng tỷ lệ tách GIVE/LTS (44/37/11/5/3/0) */
+  familyPlanV2Applied: boolean;
 }
 
 export interface IncomeBufferSettings {
