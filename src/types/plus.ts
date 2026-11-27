@@ -61,6 +61,8 @@ export interface PlusData {
   loanSettled: Record<string, string>;
   /** Mục tiêu tiết kiệm hằng tháng (% thu nhập định mức) */
   savingsTargetPct: number;
+  /** Đã áp dụng kế hoạch tài chính gia đình (tỷ lệ 6 hũ 44/42/11/3 + học phí Bun) */
+  familyPlanApplied: boolean;
 }
 
 export interface IncomeBufferSettings {

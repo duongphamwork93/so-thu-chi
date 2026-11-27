@@ -23,7 +23,7 @@ import { formatDateVietnamese, formatVND, formatVNDShort } from '../../utils/for
 import { JarTargets, Transaction } from '../../types/finance';
 import { getBeneficiaries } from '../../constants/beneficiaries';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
-import { classifyJar } from '../../utils/jars';
+import { classifyJar, DEFAULT_JARS } from '../../utils/jars';
 import { JarSettingsModal } from '../modals/JarSettingsModal';
 import { canonicalCategoryKey } from '../../constants/categories';
 
@@ -35,14 +35,7 @@ interface ReportsViewProps {
   initialType?: 'out' | 'in';
 }
 
-const DEFAULT_JARS: JarTargets = {
-  nec: 55,
-  ffa: 10,
-  educ: 10,
-  play: 10,
-  give: 5,
-  lts: 10,
-};
+
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   onOpenAddModal,

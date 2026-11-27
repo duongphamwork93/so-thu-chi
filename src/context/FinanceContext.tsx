@@ -43,6 +43,7 @@ import {
   applyCategoryOverride,
 } from '../constants/categories';
 import type { CategoryOverride } from '../types/plus';
+import { DEFAULT_JARS } from '../utils/jars';
 import { getColorThemeOption } from '../constants/themes';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from './AuthContext';
@@ -93,6 +94,7 @@ export function getInitialDemoData(): StorageData {
     theme: 'light',
     colorTheme: 'emerald',
     currency: 'VND',
+    jarTargets: { ...DEFAULT_JARS },
   };
 
   return {

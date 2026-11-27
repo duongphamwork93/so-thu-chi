@@ -5,12 +5,12 @@ import { PeriodRange, elapsedDaysInPeriod } from './period';
 export type JarKey = keyof JarTargets;
 
 export const DEFAULT_JARS: JarTargets = {
-  nec: 55,
-  ffa: 10,
-  educ: 10,
-  play: 10,
-  give: 5,
-  lts: 10,
+  nec: 44,
+  ffa: 0,
+  educ: 11,
+  play: 3,
+  give: 42,
+  lts: 0,
 };
 
 export const JAR_META: Record<JarKey, { code: string; label: string; desc: string; color: string }> = {
