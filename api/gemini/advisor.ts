@@ -73,7 +73,11 @@ QUY TẮC BẮT BUỘC:
 3. Thanh khoản: so tiền mặt trong ví/tài khoản với dư nợ thẻ, đặc biệt sao kê sắp đến hạn. "Tiền mặt thực khả dụng" = Tiền mặt − Dư nợ thẻ.
 4. Số tiền viết dạng Việt Nam có dấu chấm (VD: 1.250.000đ). Ngày viết dd/mm.
 5. VÙNG ĐỆM AN TOÀN (buffer): khoản thu giữa tháng (khoảng 25–28 triệu) có thể về từ ngày midIncomeFrom đến bufferEnd (thường 10–12). Từ sau kỳ lương cuối tháng, ví giữ vùng đệm phải đủ: khoản cố định đến hạn trước bufferEnd (VD học phí ngày 10) + sao kê thẻ đến hạn + chi thiết yếu mỗi ngày đến hết bufferEnd. Nếu buffer.active và buffer.shortfall > 0 thì PHẢI cảnh báo trong phần thanh khoản và đưa 1 hành động bù vùng đệm vào kế hoạch.
-6. Kế hoạch hành động đúng 3 việc, mỗi việc có con số thực tế và hạn chót trong 7 ngày tới (tính từ ngày hôm nay trong dữ liệu).`;
+6. NGƯỜI GÁC CỔNG TIẾT KIỆM (savingsGoal): mục tiêu tiết kiệm tháng = savingsGoal.targetAmount (savingsGoal.targetPct% thu nhập định mức), đổ vào các Quỹ mục tiêu / sổ tiết kiệm (savings). BẮT BUỘC trả lời thẳng 3 câu trong savingsGate:
+   (1) Tháng này có trích đủ mục tiêu không, hay hụt bao nhiêu tiền (dựa trên tiền mặt dư sau khi trừ chi tiêu và dư nợ thẻ, projectedSavable, projectedGap)?
+   (2) Đích danh 2–3 nguyên nhân cụ thể đang kéo lùi tiết kiệm (hũ vượt trần với số tiền, nhóm đơn lắt nhắt, tiền mua hộ chưa thu…).
+   (3) Mệnh lệnh cắt giảm đến hết kỳ: hạn mức chi tối đa mỗi ngày (tham khảo dailyCapToHitTarget) và danh sách khoản cần "đóng băng" ngay.
+7. Kế hoạch hành động đúng 3 việc, mỗi việc có con số thực tế và hạn chót trong 7 ngày tới (tính từ ngày hôm nay trong dữ liệu).`;
 
     const prompt = `DỮ LIỆU KIỂM TOÁN (JSON, đã được app tính sẵn các con số cứng — hãy tin tưởng các số này):
 ${auditJson}
@@ -86,6 +90,7 @@ Giải thích trường:
 - cards[]: dư nợ, số sao kê còn phải trả (statementDue), hạn trả (dueDate), selfLimit (hạn mức tự đặt).
 - pendingLoans[]: khoản Cho vay/Mua hộ chưa thấy bút toán Thu nợ.
 - leaks[]: nhóm giao dịch nhỏ (≤500k) tần suất cao trong kỳ.
+- savingsGoal: mục tiêu tiết kiệm tháng và dự báo đạt/hụt (projectedGap > 0 = hụt).
 - buffer: vùng đệm chờ thu nhập giữa tháng (accountName, accountBalance, required, shortfall, bufferEnd, fixedItems, cardItems, essentialTotal).
 - savings: sổ tiết kiệm & quỹ mục tiêu.
 - transactions[]: toàn bộ giao dịch trong kỳ (jar = mã hũ, "Trung tính" hoặc "Thu").
@@ -136,6 +141,17 @@ Hãy lập BÁO CÁO KIỂM TOÁN TÀI CHÍNH CÁ NHÂN gồm 4 phần theo sche
             },
             required: ['loansComment', 'leaksComment', 'otherFindings'],
           },
+          savingsGate: {
+            type: Type.OBJECT,
+            properties: {
+              progress: { type: Type.STRING, description: 'Trả lời câu 1: đủ hay hụt mục tiêu tiết kiệm, hụt bao nhiêu (có số tiền)' },
+              gapAmount: { type: Type.NUMBER, description: 'Số tiền dự kiến hụt mục tiêu (0 nếu đủ)' },
+              causes: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Câu 2: 2-3 nguyên nhân đích danh, có số tiền' },
+              dailyCap: { type: Type.NUMBER, description: 'Câu 3: hạn mức chi tối đa mỗi ngày đến hết kỳ (VNĐ)' },
+              freeze: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Câu 3: các khoản/nhóm chi cần đóng băng ngay' },
+            },
+            required: ['progress', 'gapAmount', 'causes', 'dailyCap', 'freeze'],
+          },
           actionPlan: {
             type: Type.ARRAY,
             description: 'Đúng 3 hành động trong 7 ngày tới',
@@ -151,7 +167,7 @@ Hãy lập BÁO CÁO KIỂM TOÁN TÀI CHÍNH CÁ NHÂN gồm 4 phần theo sche
             },
           },
         },
-        required: ['healthScore', 'healthStatus', 'headline', 'liquidity', 'jars', 'issues', 'actionPlan'],
+        required: ['healthScore', 'healthStatus', 'headline', 'liquidity', 'jars', 'issues', 'savingsGate', 'actionPlan'],
       },
     };
 

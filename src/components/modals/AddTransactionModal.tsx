@@ -33,6 +33,8 @@ import { AddCategoryModal } from './AddCategoryModal';
 import { ParsedVoiceTransaction } from './VoiceTransactionModal';
 import { ReceiptScannerPanel } from '../ReceiptScannerPanel';
 import { CategorySelectDropdown } from '../CategorySelectDropdown';
+import { BudgetGuardrailNote, useBudgetGuardrail } from '../BudgetGuardrail';
+import { AlertTriangle } from 'lucide-react';
 import { usePlus } from '../../context/PlusContext';
 import { parseQuickText } from '../../utils/quickParse';
 import { evaluateSpendNotices } from '../../utils/spendGuard';
@@ -230,6 +232,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   );
 
   const currentAmountNum = parseCurrencyInput(amountStr) || parseVietnameseMoneyText(amountStr);
+  const guardrail = useBudgetGuardrail({ type, cat: selectedCat, amount: currentAmountNum, date });
 
   if (!isOpen || typeof document === 'undefined' || !document.body) return null;
 
@@ -604,6 +607,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               onChange={setSelectedCat}
               showFrequent={false}
             />
+            <BudgetGuardrailNote state={guardrail} amount={currentAmountNum} />
           </div>
 
           {/* Beneficiary Selector: Chi Cho Ai */}
@@ -858,10 +862,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <button
               type="submit"
               disabled={currentAmountNum <= 0}
-              className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm shadow-md shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className={`flex-[2] min-h-[48px] py-3 rounded-2xl text-white font-bold text-sm shadow-md disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                guardrail.over
+                  ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/25'
+                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700'
+              }`}
             >
-              <Check size={18} />
-              <span>Lưu Giao Dịch</span>
+              {guardrail.over ? <AlertTriangle size={18} /> : <Check size={18} />}
+              <span>{guardrail.over ? 'Xác nhận lưu (Vượt ngân sách)' : 'Lưu Giao Dịch'}</span>
             </button>
           </div>
         </form>

@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Gauge, HandCoins, Layers, SlidersHorizontal } from 'lucide-react';
+import { Gauge, HandCoins, Layers, PiggyBank, SlidersHorizontal } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { usePlus } from '../../context/PlusContext';
 import { computeJarStatuses, DEFAULT_JARS } from '../../utils/jars';
 import { formatVND, formatVNDShort, getTodayDateString } from '../../utils/formatters';
-import { latestPaydayDate } from '../../utils/period';
+import { diffDays, latestPaydayDate } from '../../utils/period';
+import { CloseoutModal } from '../modals/CloseoutModal';
 import { JarSettingsModal } from '../modals/JarSettingsModal';
 import { PaydayChecklistModal, paydayDoneKey } from '../modals/PaydayChecklistModal';
 
@@ -47,6 +48,23 @@ export const JarBudgetCard: React.FC<JarBudgetCardProps> = ({ onOpenJarReport })
     return null;
   }, [paydayPlans, plus.paydayDone, todayStr]);
 
+  const [isCloseoutOpen, setIsCloseoutOpen] = useState(false);
+
+  // Burn-rate: (ngân sách NEC+PLAY+EDUC − đã chi) / số ngày còn lại của kỳ (tính cả hôm nay)
+  const burn = useMemo(() => {
+    if (todayStr < periodRange.start || todayStr > periodRange.end) return null;
+    const consumption = jars.filter(j => j.key === 'nec' || j.key === 'play' || j.key === 'educ');
+    const budget = consumption.reduce((s, j) => s + j.budget, 0);
+    const spent = consumption.reduce((s, j) => s + j.spent, 0);
+    const daysLeft = Math.max(1, diffDays(todayStr, periodRange.end) + 1);
+    const usedPct = budget > 0 ? (spent / budget) * 100 : 0;
+    return {
+      perDay: Math.floor((budget - spent) / daysLeft / 1000) * 1000,
+      daysLeft,
+      fast: usedPct > (jars[0]?.elapsedPct ?? 0),
+    };
+  }, [jars, todayStr, periodRange]);
+
   const variable = jars.filter(j => j.isVariable);
   const variableRemaining = variable.reduce((s, j) => s + j.remaining, 0);
 
@@ -65,7 +83,45 @@ export const JarBudgetCard: React.FC<JarBudgetCardProps> = ({ onOpenJarReport })
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsCloseoutOpen(true)}
+          className="min-h-[36px] px-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center gap-1 shrink-0 active:scale-95 transition-all cursor-pointer"
+          title="Gom tiền dư cuối kỳ vào Quỹ mục tiêu"
+        >
+          <PiggyBank size={14} />
+          Chốt sổ cuối kỳ
+        </button>
       </div>
+
+      {/* Tốc độ tiêu tiền: hạn mức an toàn mỗi ngày cho các hũ tiêu dùng */}
+      {burn && (
+        <div
+          className={`p-3 rounded-2xl border flex flex-wrap items-center justify-between gap-x-3 gap-y-1 ${
+            burn.perDay <= 0
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800'
+              : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/80 dark:border-emerald-900/60'
+          }`}
+        >
+          <span className="text-xs text-slate-600 dark:text-slate-300">
+            Hạn mức an toàn còn lại (NEC + PLAY + EDUC, {burn.daysLeft} ngày):
+          </span>
+          <span className="flex items-center gap-1.5">
+            <strong
+              className={`money-mask text-sm font-black tabular-nums ${
+                burn.perDay <= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-300'
+              }`}
+            >
+              {formatVND(Math.max(0, burn.perDay))}/ngày
+            </strong>
+            {burn.fast && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold whitespace-nowrap">
+                Đang tiêu nhanh hơn kế hoạch
+              </span>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <button
@@ -184,6 +240,7 @@ export const JarBudgetCard: React.FC<JarBudgetCardProps> = ({ onOpenJarReport })
 
       <JarSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <PaydayChecklistModal isOpen={isPaydayOpen} onClose={() => setIsPaydayOpen(false)} />
+      <CloseoutModal isOpen={isCloseoutOpen} onClose={() => setIsCloseoutOpen(false)} />
     </div>
   );
 };

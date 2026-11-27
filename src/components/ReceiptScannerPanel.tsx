@@ -24,6 +24,7 @@ import { useFinance } from '../context/FinanceContext';
 import { canonicalCategoryKey } from '../constants/categories';
 import { autoClassifyTransaction } from '../utils/autoClassify';
 import { CategorySelectDropdown } from './CategorySelectDropdown';
+import { BudgetGuardrail } from './BudgetGuardrail';
 import { formatVND, getTodayDateString } from '../utils/formatters';
 import { compressImage } from '../utils/imageCompressor';
 import { resolveDefaultPaymentAccountId } from '../utils/paymentMatcher';
@@ -1188,6 +1189,14 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
                           )
                         }
                       />
+                      <div className="mt-1.5">
+                        <BudgetGuardrail
+                          type={item.type}
+                          cat={resolveValidCategory(item.category, item.type)}
+                          amount={item.amount}
+                          date={item.date}
+                        />
+                      </div>
                   </div>
 
                   <div className="space-y-1 min-w-0">
@@ -1493,6 +1502,12 @@ export const ReceiptScannerPanel: React.FC<ReceiptScannerPanelProps> = ({
                   type={receiptForm.type}
                   value={resolveValidCategory(receiptForm.category, receiptForm.type)}
                   onChange={val => setReceiptForm(prev => (prev ? { ...prev, category: val } : null))}
+                />
+                <BudgetGuardrail
+                  type={receiptForm.type}
+                  cat={resolveValidCategory(receiptForm.category, receiptForm.type)}
+                  amount={receiptForm.amount}
+                  date={receiptForm.date}
                 />
             </div>
 
