@@ -55,6 +55,20 @@ export interface PlusData {
   recurringSeeded: boolean;
   /** Đổi tên / đổi hũ / ẩn danh mục: key → chỉnh sửa */
   categoryOverrides: Record<string, CategoryOverride>;
+  /** Vùng đệm an toàn chờ kỳ thu nhập giữa tháng */
+  buffer: IncomeBufferSettings;
+}
+
+export interface IncomeBufferSettings {
+  /** Ví/tài khoản giữ vùng đệm (mặc định: ví Tech / tài khoản ngân hàng đầu tiên) */
+  accountId?: string;
+  /** Khoản thu giữa tháng có thể về từ ngày… đến ngày… */
+  midIncomeFromDay: number;
+  midIncomeToDay: number;
+  /** Ngày bắt đầu theo dõi vùng đệm (quanh kỳ lương cuối tháng) */
+  startDay: number;
+  /** Chi sinh hoạt thiết yếu mỗi ngày; 0 = tự ước tính từ lịch sử */
+  dailyEssential: number;
 }
 
 export type JarChoice = 'nec' | 'ffa' | 'educ' | 'play' | 'give' | 'lts' | 'none';

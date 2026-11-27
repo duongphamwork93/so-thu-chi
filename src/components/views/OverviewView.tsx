@@ -24,6 +24,7 @@ import {
 import { usePlus } from '../../context/PlusContext';
 import { JarBudgetCard } from '../overview/JarBudgetCard';
 import { AutoPostedBanner } from '../overview/AutoPostedBanner';
+import { IncomeBufferCard } from '../overview/IncomeBufferCard';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORY_MAP } from '../../constants/categories';
 import { CategoryIcon } from '../CategoryIcon';
@@ -444,6 +445,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </button>
             </div>
           </div>
+
+          {/* 1a. VÙNG ĐỆM CHỜ THU NHẬP GIỮA THÁNG */}
+          <IncomeBufferCard onOpenRecurring={onOpenRecurring} />
 
           {/* 1b. NGÂN SÁCH 6 HŨ (Trần cố định) + CHIA TIỀN LƯƠNG */}
           <JarBudgetCard onOpenJarReport={() => openSpecificReport('sixjars', 'out')} />

@@ -72,7 +72,8 @@ QUY TẮC BẮT BUỘC:
 2. Giao dịch "Trung tính" (Cho vay / Mua hộ / Tạm ứng) KHÔNG phải chi tiêu gia đình — tách riêng, chỉ dùng để nhắc thu hồi.
 3. Thanh khoản: so tiền mặt trong ví/tài khoản với dư nợ thẻ, đặc biệt sao kê sắp đến hạn. "Tiền mặt thực khả dụng" = Tiền mặt − Dư nợ thẻ.
 4. Số tiền viết dạng Việt Nam có dấu chấm (VD: 1.250.000đ). Ngày viết dd/mm.
-5. Kế hoạch hành động đúng 3 việc, mỗi việc có con số thực tế và hạn chót trong 7 ngày tới (tính từ ngày hôm nay trong dữ liệu).`;
+5. VÙNG ĐỆM AN TOÀN (buffer): khoản thu giữa tháng (khoảng 25–28 triệu) có thể về từ ngày midIncomeFrom đến bufferEnd (thường 10–12). Từ sau kỳ lương cuối tháng, ví giữ vùng đệm phải đủ: khoản cố định đến hạn trước bufferEnd (VD học phí ngày 10) + sao kê thẻ đến hạn + chi thiết yếu mỗi ngày đến hết bufferEnd. Nếu buffer.active và buffer.shortfall > 0 thì PHẢI cảnh báo trong phần thanh khoản và đưa 1 hành động bù vùng đệm vào kế hoạch.
+6. Kế hoạch hành động đúng 3 việc, mỗi việc có con số thực tế và hạn chót trong 7 ngày tới (tính từ ngày hôm nay trong dữ liệu).`;
 
     const prompt = `DỮ LIỆU KIỂM TOÁN (JSON, đã được app tính sẵn các con số cứng — hãy tin tưởng các số này):
 ${auditJson}
@@ -85,6 +86,7 @@ Giải thích trường:
 - cards[]: dư nợ, số sao kê còn phải trả (statementDue), hạn trả (dueDate), selfLimit (hạn mức tự đặt).
 - pendingLoans[]: khoản Cho vay/Mua hộ chưa thấy bút toán Thu nợ.
 - leaks[]: nhóm giao dịch nhỏ (≤500k) tần suất cao trong kỳ.
+- buffer: vùng đệm chờ thu nhập giữa tháng (accountName, accountBalance, required, shortfall, bufferEnd, fixedItems, cardItems, essentialTotal).
 - savings: sổ tiết kiệm & quỹ mục tiêu.
 - transactions[]: toàn bộ giao dịch trong kỳ (jar = mã hũ, "Trung tính" hoặc "Thu").
 
