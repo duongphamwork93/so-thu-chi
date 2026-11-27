@@ -27,7 +27,7 @@ function parseFriendlyError(err: any): { status: number; retryable: boolean; mod
   if (code === 429 || lower.includes('resource_exhausted') || lower.includes('quota')) {
     return { status: 429, retryable: true, modelUnavailable: false, message: 'Hệ thống AI tạm chạm giới hạn lượt gọi. Vui lòng thử lại sau giây lát.' };
   }
-  return { status: 500, retryable: false, modelUnavailable: false, message: msg || 'Lỗi khi phân tích tài chính với AI.' };
+  return { status: 500, retryable: false, modelUnavailable: false, message: msg || 'Lỗi khi kiểm toán tài chính với AI.' };
 }
 
 export default async function handler(req: any, res: any) {
@@ -39,7 +39,10 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { month, income, expense, byCategory, netWorth, debts, savings, budget } = req.body || {};
+    const { audit } = req.body || {};
+    if (!audit || typeof audit !== 'object') {
+      return res.status(400).json({ error: 'Thiếu dữ liệu kiểm toán tài chính.' });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -55,63 +58,98 @@ export default async function handler(req: any, res: any) {
       },
     });
 
-    const prompt = `Bạn là chuyên gia hoạch định tài chính cá nhân và gia đình giàu kinh nghiệm tại Việt Nam.
-Dưới đây là bức tranh tài chính tháng ${month || 'gần đây'}:
-- Tổng thu nhập: ${income?.toLocaleString('vi-VN')} ₫
-- Tổng chi tiêu: ${expense?.toLocaleString('vi-VN')} ₫
-- Hạn mức ngân sách tháng đã đặt: ${budget ? budget.toLocaleString('vi-VN') + ' ₫' : 'Chưa đặt'}
-- Thặng dư/Tiết kiệm trong tháng: ${(income - expense)?.toLocaleString('vi-VN')} ₫
-- Chi tiết theo danh mục: ${JSON.stringify(byCategory || {})}
-- Tổng tài sản ròng (Net Worth): ${netWorth?.toLocaleString('vi-VN')} ₫
-- Tổng nợ (vay nợ, thẻ tín dụng): ${debts?.toLocaleString('vi-VN')} ₫
-- Tổng tiết kiệm & đầu tư: ${savings?.toLocaleString('vi-VN')} ₫
+    // Giới hạn kích thước dữ liệu gửi AI
+    const safeAudit = {
+      ...audit,
+      transactions: Array.isArray(audit.transactions) ? audit.transactions.slice(-300) : [],
+    };
+    const auditJson = JSON.stringify(safeAudit).slice(0, 120000);
 
-Hãy phân tích sức khỏe tài chính thực tế, chỉ ra điểm tích cực, những khoản chi có thể đang lãng phí hoặc vượt chuẩn 50/30/20, và đưa ra 3 lời khuyên cụ thể, hành động được ngay cho lối sống tại Việt Nam.`;
+    const systemInstruction = `Bạn là Chuyên gia Hoạch định Tài chính Gia đình (CFP) tại Việt Nam, đang KIỂM TOÁN tài chính cá nhân cho một gia đình có con nhỏ.
+Văn phong: thẳng thắn, sắc sảo, thực tế, đi thẳng vào SỐ LIỆU THẬT của người dùng (tên ví, tên thẻ, số tiền, ngày cụ thể). Không nói lý thuyết chung chung, không khuyên kiểu sách vở.
+QUY TẮC BẮT BUỘC:
+1. Mọi đánh giá chi tiêu dựa trên HỆ THỐNG 6 HŨ (NEC, PLAY, EDUC, GIVE, LTS, FFA) với ngân sách trần = Thu nhập định mức tháng × % từng hũ. KHÔNG dùng quy tắc 50/30/20.
+2. Giao dịch "Trung tính" (Cho vay / Mua hộ / Tạm ứng) KHÔNG phải chi tiêu gia đình — tách riêng, chỉ dùng để nhắc thu hồi.
+3. Thanh khoản: so tiền mặt trong ví/tài khoản với dư nợ thẻ, đặc biệt sao kê sắp đến hạn. "Tiền mặt thực khả dụng" = Tiền mặt − Dư nợ thẻ.
+4. Số tiền viết dạng Việt Nam có dấu chấm (VD: 1.250.000đ). Ngày viết dd/mm.
+5. Kế hoạch hành động đúng 3 việc, mỗi việc có con số thực tế và hạn chót trong 7 ngày tới (tính từ ngày hôm nay trong dữ liệu).`;
+
+    const prompt = `DỮ LIỆU KIỂM TOÁN (JSON, đã được app tính sẵn các con số cứng — hãy tin tưởng các số này):
+${auditJson}
+
+Giải thích trường:
+- period: kỳ đang xem (elapsedPct = % thời gian đã trôi qua, daysLeft = số ngày còn lại).
+- monthlyIncome, jarTargets: thu nhập định mức và % từng hũ.
+- jars[]: từng hũ với budget (trần), spent (đã chi), remaining (còn lại, âm = vượt trần), usedPct.
+- liquidity: tiền mặt từng ví (cashAccounts), tổng dư nợ thẻ, realSpendable, dueSoonTotal = sao kê phải trả trong 35 ngày.
+- cards[]: dư nợ, số sao kê còn phải trả (statementDue), hạn trả (dueDate), selfLimit (hạn mức tự đặt).
+- pendingLoans[]: khoản Cho vay/Mua hộ chưa thấy bút toán Thu nợ.
+- leaks[]: nhóm giao dịch nhỏ (≤500k) tần suất cao trong kỳ.
+- savings: sổ tiết kiệm & quỹ mục tiêu.
+- transactions[]: toàn bộ giao dịch trong kỳ (jar = mã hũ, "Trung tính" hoặc "Thu").
+
+Hãy lập BÁO CÁO KIỂM TOÁN TÀI CHÍNH CÁ NHÂN gồm 4 phần theo schema.`;
 
     const baseConfig = {
+      systemInstruction,
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          financialHealthScore: { type: Type.NUMBER, description: 'Điểm sức khỏe tài chính từ 1 đến 100' },
-          healthStatus: { type: Type.STRING, description: 'Đánh giá ngắn: Xuất sắc, Tốt, Cần lưu ý, Nguy cơ' },
-          summary: { type: Type.STRING, description: 'Tóm tắt tình hình tài chính tháng' },
-          rule503020: {
+          healthScore: { type: Type.NUMBER, description: 'Điểm sức khỏe tài chính 0-100' },
+          healthStatus: { type: Type.STRING, description: 'Xuất sắc | Tốt | Cần lưu ý | Báo động' },
+          headline: { type: Type.STRING, description: 'Một câu kết luận sắc gọn về tình hình (≤ 25 từ)' },
+          liquidity: {
             type: Type.OBJECT,
             properties: {
-              needPct: { type: Type.NUMBER, description: 'Tỷ lệ % chi thiết yếu' },
-              wantPct: { type: Type.NUMBER, description: 'Tỷ lệ % chi theo sở thích cá nhân' },
-              savePct: { type: Type.NUMBER, description: 'Tỷ lệ % tiết kiệm & đầu tư' },
-              comment: { type: Type.STRING, description: 'Nhận xét về tỉ lệ 50/30/20' },
+              level: { type: Type.STRING, description: "'safe' | 'warning' | 'danger'" },
+              verdict: { type: Type.STRING, description: 'Nhận định thanh khoản, nêu tên ví/thẻ và số tiền cụ thể (2-3 câu)' },
             },
-            required: ['needPct', 'wantPct', 'savePct', 'comment'],
+            required: ['level', 'verdict'],
           },
-          keyInsights: {
+          jars: {
+            type: Type.OBJECT,
+            properties: {
+              verdict: { type: Type.STRING, description: 'Nhận định chung 6 hũ, chỉ rõ hũ lẹm nhiều nhất và số tiền (2-3 câu)' },
+              items: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    code: { type: Type.STRING, description: 'NEC | PLAY | EDUC | GIVE | LTS | FFA' },
+                    comment: { type: Type.STRING, description: 'Nhận xét 1 câu cho hũ này' },
+                  },
+                  required: ['code', 'comment'],
+                },
+              },
+            },
+            required: ['verdict', 'items'],
+          },
+          issues: {
+            type: Type.OBJECT,
+            properties: {
+              loansComment: { type: Type.STRING, description: 'Nhắc các khoản cho vay/mua hộ cần đòi (rỗng nếu không có)' },
+              leaksComment: { type: Type.STRING, description: 'Chỉ ra điểm rò rỉ tiền từ giao dịch lắt nhắt (rỗng nếu không có)' },
+              otherFindings: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Tối đa 3 phát hiện bất thường khác' },
+            },
+            required: ['loansComment', 'leaksComment', 'otherFindings'],
+          },
+          actionPlan: {
             type: Type.ARRAY,
+            description: 'Đúng 3 hành động trong 7 ngày tới',
             items: {
               type: Type.OBJECT,
               properties: {
-                title: { type: Type.STRING },
-                type: { type: Type.STRING, description: "'success' | 'warning' | 'tip'" },
-                description: { type: Type.STRING },
+                title: { type: Type.STRING, description: 'Hành động ngắn gọn, có con số' },
+                detail: { type: Type.STRING, description: 'Cách làm cụ thể 1-2 câu' },
+                amount: { type: Type.NUMBER, description: 'Số tiền liên quan (VNĐ), 0 nếu không có' },
+                deadline: { type: Type.STRING, description: 'Hạn chót dạng dd/mm' },
               },
-              required: ['title', 'type', 'description'],
-            },
-          },
-          actionSteps: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                detail: { type: Type.STRING },
-                estimatedSaving: { type: Type.STRING },
-              },
-              required: ['title', 'detail'],
+              required: ['title', 'detail', 'amount', 'deadline'],
             },
           },
         },
-        required: ['financialHealthScore', 'healthStatus', 'summary', 'rule503020', 'keyInsights', 'actionSteps'],
+        required: ['healthScore', 'healthStatus', 'headline', 'liquidity', 'jars', 'issues', 'actionPlan'],
       },
     };
 
